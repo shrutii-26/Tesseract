@@ -404,16 +404,13 @@ async function checkHealth() {
     const data = await r.json();
     const dot = document.getElementById('statusDot');
     const txt = document.getElementById('statusText');
-    if (data.ollama === 'connected' && data.llama3) {
-      dot.className = 'status-dot ok';
-      txt.textContent = 'llama3 ready';
-    } else if (data.ollama === 'connected') {
-      dot.className = 'status-dot err';
-      txt.textContent = `ollama up but llama3 not found (run: ollama pull llama3)`;
+    if (data.groq === 'connected') {
+  dot.className = 'status-dot ok';
+  txt.textContent = 'Groq connected — ready';
     } else {
-      dot.className = 'status-dot err';
-      txt.textContent = 'ollama not reachable — start it with: ollama serve';
-    }
+  dot.className = 'status-dot err';
+  txt.textContent = 'backend unreachable';
+}
   } catch {
     document.getElementById('statusDot').className = 'status-dot err';
     document.getElementById('statusText').textContent = 'backend not running — see setup instructions';
