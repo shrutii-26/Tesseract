@@ -33,11 +33,13 @@ app = FastAPI(title="Tesseract", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://tesseract-wine.vercel.app",
+        "http://localhost:5500"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 import os
 from dotenv import load_dotenv
 
