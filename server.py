@@ -844,10 +844,9 @@ async def hitl_resolve(req: HITLResponse):
 
 # FIX: removed live Groq API call from health check — it was burning rate
 # limits and adding latency on every UptimeRobot ping (every 5 minutes)
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok"}
-
 
 @app.get("/")
 async def root():
