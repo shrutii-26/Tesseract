@@ -404,7 +404,7 @@ async function checkHealth() {
     const data = await r.json();
     const dot = document.getElementById('statusDot');
     const txt = document.getElementById('statusText');
-    if (data.groq === 'connected') {
+    if (data.status === 'ok') {
   dot.className = 'status-dot ok';
   txt.textContent = 'Groq connected — ready';
     } else {
