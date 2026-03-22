@@ -33,13 +33,11 @@ app = FastAPI(title="Tesseract", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://tesseract-wine.vercel.app",
-        "http://localhost:5500"
-    ],
+    allow_origins=["https://tesseract-wine.vercel.app", "http://localhost:5500"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 import os
 from dotenv import load_dotenv
 
@@ -54,6 +52,20 @@ TAVILY_URL = "https://api.tavily.com/search"
 MODEL = "llama-3.1-8b-instant"
 
 pending_approvals: dict = {}
+
+# ── Shared HTTP client (created once at startup, reused for all requests) ────
+http_client: httpx.AsyncClient = None
+
+
+@app.on_event("startup")
+async def startup():
+    global http_client
+    http_client = httpx.AsyncClient(timeout=60)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await http_client.aclose()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -155,24 +167,32 @@ class GuardianHistoryIn(BaseModel):
 
 
 async def llm(prompt: str, max_tokens: int = 1024, temperature: float = 0.1) -> str:
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            GROQ_URL,
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-        )
+    # Uses the shared http_client instead of creating a new one per call
+    response = await http_client.post(
+        GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        },
+    )
     data = response.json()
     if "choices" not in data:
         raise Exception(f"Groq error: {data}")
     return data["choices"][0]["message"]["content"]
+
+
+async def with_timeout(coro, label: str, seconds: int = 20):
+    """Wrap a coroutine with a timeout so one slow agent can't hang the brief."""
+    try:
+        return await asyncio.wait_for(coro, timeout=seconds)
+    except asyncio.TimeoutError:
+        return {"error": f"{label} timed out after {seconds}s"}
 
 
 def parse_json(raw: str) -> dict:
@@ -384,7 +404,7 @@ async def db_delete_rule(rule: str):
 @app.post("/triage")
 async def triage(req: TriageRequest):
     prompt = TRIAGE_PROMPT.format(messages=json.dumps(req.messages, indent=2))
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=400)
     return parse_json(raw) or {"error": "Could not parse response", "raw": raw}
 
 
@@ -403,25 +423,27 @@ async def draft(req: DraftRequest):
 
 @app.post("/research")
 async def research(req: ResearchRequest):
-    async with httpx.AsyncClient(timeout=30) as client:
-        tavily_response = await client.post(
-            TAVILY_URL,
-            json={
-                "api_key": TAVILY_API_KEY,
-                "query": req.question,
-                "search_depth": "advanced",
-                "max_results": 6,
-                "include_answer": False,
-            },
-        )
+    # FIX: switched from "advanced" to "basic" — advanced depth adds 8-15s latency
+    # and isn't needed since we only use the top snippet content anyway
+    tavily_response = await http_client.post(
+        TAVILY_URL,
+        json={
+            "api_key": TAVILY_API_KEY,
+            "query": req.question,
+            "search_depth": "basic",
+            "max_results": 5,
+            "include_answer": False,
+        },
+        timeout=20,
+    )
     results = tavily_response.json().get("results", [])
     if not results:
         return {"error": "No search results found"}
     formatted = ""
-    for i, r in enumerate(results[:6], 1):
+    for i, r in enumerate(results[:5], 1):
         formatted += f"\n[{i}] {r.get('title', '')}\nURL: {r.get('url', '')}\nSnippet: {r.get('content', '')[:300]}\n"
     prompt = RESEARCH_PROMPT.format(question=req.question, results=formatted)
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=500)
     result = parse_json(raw)
     if result and not result.get("sources"):
         result["sources"] = [r.get("url", "") for r in results[:3]]
@@ -431,7 +453,7 @@ async def research(req: ResearchRequest):
 @app.post("/extract-commitments")
 async def extract_commitments(req: ExtractCommitmentsRequest):
     prompt = EXTRACT_COMMITMENTS_PROMPT.format(text=req.text)
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=400)
     return parse_json(raw) or {"error": "Could not parse response", "raw": raw}
 
 
@@ -453,9 +475,8 @@ async def guardian(req: GuardianRequest):
         history=history_text,
         notifications=json.dumps(req.notifications, indent=2),
     )
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=300)
     result = parse_json(raw) or {"decisions": []}
-    # Auto-save decisions to DB
     for d in result.get("decisions", []):
         notif = next((n for n in req.notifications if n["id"] == d["id"]), {})
         add_guardian_history(
@@ -472,7 +493,7 @@ async def social_curate(req: SocialCurateRequest):
     prompt = SOCIAL_CURATOR_PROMPT.format(
         interests=interests_text, posts=json.dumps(req.posts, indent=2)
     )
-    raw = await llm(prompt, temperature=0.2)
+    raw = await llm(prompt, max_tokens=500, temperature=0.2)
     return parse_json(raw) or {"error": "Could not parse response", "raw": raw}
 
 
@@ -483,7 +504,7 @@ async def learning_orchestrate(req: LearningOrchestrateRequest):
         available=req.available_minutes,
         items=json.dumps(req.items, indent=2),
     )
-    raw = await llm(prompt, temperature=0.2)
+    raw = await llm(prompt, max_tokens=400, temperature=0.2)
     return parse_json(raw) or {"error": "Could not parse response", "raw": raw}
 
 
@@ -535,7 +556,7 @@ def router_node(state: BriefState) -> BriefState:
 
 async def _triage_agent(state):
     prompt = TRIAGE_PROMPT.format(messages=json.dumps(state["messages"], indent=2))
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=400)
     return parse_json(raw) or {"priority": [], "rest": []}
 
 
@@ -546,7 +567,7 @@ async def _guardian_agent(state):
         history="No history.",
         notifications=json.dumps(state["notifications"], indent=2),
     )
-    raw = await llm(prompt)
+    raw = await llm(prompt, max_tokens=300)
     return parse_json(raw) or {"decisions": []}
 
 
@@ -566,7 +587,7 @@ async def _social_agent(state):
     prompt = SOCIAL_CURATOR_PROMPT.format(
         interests=interests_text, posts=json.dumps(state["posts"], indent=2)
     )
-    raw = await llm(prompt, temperature=0.2)
+    raw = await llm(prompt, max_tokens=500, temperature=0.2)
     return parse_json(raw) or {"top_picks": [], "scored": []}
 
 
@@ -576,7 +597,7 @@ async def _learning_agent(state):
         energy=state.get("energy", "medium"),
         items=json.dumps(state["learning_items"], indent=2),
     )
-    raw = await llm(prompt, temperature=0.2)
+    raw = await llm(prompt, max_tokens=400, temperature=0.2)
     return parse_json(raw) or {"sprint": [], "stale_guilt": [], "total_minutes": 0}
 
 
@@ -595,8 +616,11 @@ async def parallel_agents_node(state: BriefState) -> BriefState:
 
     if tasks:
         keys = list(tasks.keys())
+        # FIX: each agent wrapped with a 20s timeout so one slow LLM call
+        # can't hold up the entire brief
         results = await asyncio.gather(
-            *[tasks[k] for k in keys], return_exceptions=True
+            *[with_timeout(tasks[k], k, seconds=20) for k in keys],
+            return_exceptions=True,
         )
         result_map = {
             k: (r if not isinstance(r, Exception) else {"error": str(r)})
@@ -736,7 +760,6 @@ brief_graph = build_graph()
 
 @app.post("/daily-brief")
 async def daily_brief(req: BriefRequest):
-    # Pull persisted data from DB
     commitments = get_commitments()
     learning_items = get_learning_items()
     interests = get_interests() or req.interests or ["technology", "business"]
@@ -746,13 +769,13 @@ async def daily_brief(req: BriefRequest):
     initial_state = BriefState(
         messages=req.messages,
         notifications=req.notifications,
-        commitments=commitments,  # from DB
+        commitments=commitments,
         posts=req.posts,
-        learning_items=learning_items,  # from DB
-        interests=interests,  # from DB
+        learning_items=learning_items,
+        interests=interests,
         energy=req.energy,
         available_minutes=req.available_minutes,
-        rules=rules,  # from DB
+        rules=rules,
         run_triage=False,
         run_guardian=False,
         run_social=False,
@@ -819,19 +842,11 @@ async def hitl_resolve(req: HITLResponse):
 # ═══════════════════════════════════════════════════════════════════
 
 
+# FIX: removed live Groq API call from health check — it was burning rate
+# limits and adding latency on every UptimeRobot ping (every 5 minutes)
 @app.get("/health")
 async def health():
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(
-                "https://api.groq.com/openai/v1/models",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-            )
-            models = [m["id"] for m in r.json().get("data", [])]
-            llama3_available = any("llama3" in m or "llama-3" in m for m in models)
-            return {"status": "ok", "groq": "connected", "llama3": llama3_available}
-    except Exception as e:
-        return {"status": "ok", "groq": "unreachable", "error": str(e)}
+    return {"status": "ok"}
 
 
 @app.get("/")
