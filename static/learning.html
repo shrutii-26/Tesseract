@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learning Orchestrator — Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #c8f04e; --accent-dim: rgba(200,240,78,0.12);
+    --text: #e8eaf0; --muted: #6b7080; --red: #ff5e5e; --amber: #f5a623; --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace; --serif: 'Fraunces', Georgia, serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; padding: 40px 24px; }
+  header { max-width: 960px; margin: 0 auto 48px; display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  header h1 { font-family: var(--serif); font-weight: 300; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 em { font-style: italic; color: var(--accent); }
+  nav { margin-left: auto; display: flex; gap: 14px; font-size: 11px; letter-spacing: 1px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--accent); }
+  .container { max-width: 960px; margin: 0 auto; }
+  .section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .controls-bar { display: flex; gap: 24px; align-items: flex-end; margin-bottom: 28px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
+  .control-group { display: flex; flex-direction: column; gap: 8px; }
+  .control-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .energy-btns { display: flex; gap: 6px; }
+  .energy-btn { font-size: 11px; padding: 6px 14px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); background: transparent; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+  .energy-btn.high.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .energy-btn.medium.active { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.1); }
+  .energy-btn.low.active { border-color: var(--blue); color: var(--blue); background: rgba(126,184,247,0.1); }
+  .minutes-input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 14px; padding: 7px 12px; border-radius: 3px; outline: none; width: 80px; text-align: center; }
+  .minutes-input:focus { border-color: var(--accent); }
+  button.primary { background: var(--accent); border: none; color: #0a0b0d; font-family: var(--mono); font-weight: 500; font-size: 11px; padding: 9px 20px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: background 0.15s; align-self: flex-end; }
+  button.primary:hover { background: #d6ff52; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 11px; padding: 8px 14px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+  button.secondary:hover { border-color: var(--text); color: var(--text); }
+  .spinner-row { display: none; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; align-self: flex-end; }
+  .spinner-row.active { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .backlog-section { margin-bottom: 32px; }
+  .items-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .item-card-row1 { display: grid; grid-template-columns: 2fr 1fr 1fr 60px auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .item-card-row2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  input[type="text"], input[type="url"], input[type="number"] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 10px; border-radius: 3px; outline: none; width: 100%; transition: border-color 0.2s; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 10px; border-radius: 3px; outline: none; width: 100%; cursor: pointer; }
+  select:focus { border-color: var(--accent); }
+  .remove-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 16px; width: 28px; height: 28px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+  .remove-btn:hover { border-color: var(--red); color: var(--red); }
+  .status-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+  .status-tag.not-started { background: rgba(107,112,128,0.12); color: var(--muted); border-color: var(--border); }
+  .status-tag.in-progress { background: rgba(245,166,35,0.12); color: var(--amber); border-color: var(--amber); }
+  .status-tag.done { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+  .btn-row { display: flex; gap: 10px; align-items: center; }
+  .results-grid { display: none; }
+  .results-grid.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; animation: fadeIn 0.3s ease; }
+  .sprint-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .sprint-total { font-family: var(--serif); font-size: 22px; font-weight: 300; color: var(--accent); }
+  .sprint-list { display: flex; flex-direction: column; gap: 10px; }
+  .sprint-item { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; }
+  .sprint-order { font-family: var(--serif); font-size: 22px; font-weight: 300; color: var(--accent); flex-shrink: 0; min-width: 24px; line-height: 1; margin-top: 2px; }
+  .sprint-body { flex: 1; }
+  .sprint-title { font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .sprint-nudge { font-size: 11px; color: var(--accent); margin-bottom: 6px; font-style: italic; }
+  .sprint-meta { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--muted); }
+  .sprint-item a { color: var(--blue); font-size: 11px; text-decoration: none; }
+  .sprint-item a:hover { color: var(--accent); }
+  .type-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; }
+  .type-tag.article { background: rgba(126,184,247,0.12); color: var(--blue); }
+  .type-tag.video { background: rgba(255,94,94,0.12); color: var(--red); }
+  .guilt-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .guilt-item { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 4px; padding: 12px 14px; }
+  .guilt-title { font-size: 12px; color: var(--text); margin-bottom: 4px; }
+  .guilt-msg { font-size: 11px; color: var(--amber); font-style: italic; }
+  .skipped-list { display: flex; flex-direction: column; gap: 6px; }
+  .skipped-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .skipped-item:last-child { border-bottom: none; }
+  .skipped-title { color: var(--muted); }
+  .skipped-reason { font-size: 11px; color: var(--muted); font-style: italic; text-align: right; max-width: 160px; }
+  .error-msg { background: rgba(255,94,94,0.1); border: 1px solid rgba(255,94,94,0.3); color: var(--red); padding: 10px 14px; border-radius: 3px; font-size: 12px; margin-top: 8px; display: none; }
+  .error-msg.active { display: block; }
+  .empty-state { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Learning <em>Orchestrator</em></h1>
+  <nav>
+    <a href="brief.html">Home</a>
+    <a href="index.html">Inbox</a>
+    <a href="research.html">Research</a>
+    <a href="commitments.html">Commitments</a>
+    <a href="guardian.html">Guardian</a>
+    <a href="social.html">Social</a>
+    <a href="learning.html" class="active">Learning</a>
+  </nav>
+</header>
+<div class="container">
+  <div class="controls-bar">
+    <div class="control-group">
+      <div class="control-label">Energy level today</div>
+      <div class="energy-btns">
+        <button class="energy-btn high" onclick="setEnergy('high',this)">⚡ High</button>
+        <button class="energy-btn medium active" onclick="setEnergy('medium',this)">〜 Medium</button>
+        <button class="energy-btn low" onclick="setEnergy('low',this)">🌙 Low</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Available minutes</div>
+      <input type="number" class="minutes-input" id="availableMinutes" value="20" min="5" max="120" />
+    </div>
+    <button class="primary" id="orchestrateBtn" onclick="runOrchestration()" disabled>Build Sprint →</button>
+    <div class="spinner-row" id="orchestrateSpinner"><div class="spinner"></div>Building sprint...</div>
+  </div>
+
+  <div class="backlog-section">
+    <div class="section-label">Learning backlog</div>
+    <div class="items-grid" id="itemsGrid"><div class="empty-state">Loading...</div></div>
+    <div class="btn-row">
+      <button class="secondary" onclick="addItem()">+ Add item</button>
+    </div>
+    <div class="error-msg" id="orchestrateError"></div>
+  </div>
+
+  <div class="results-grid" id="results">
+    <div>
+      <div class="sprint-header">
+        <div class="section-label" style="margin:0">Today's sprint</div>
+        <div class="sprint-total" id="sprintTotal"></div>
+      </div>
+      <div class="sprint-list" id="sprintList"></div>
+    </div>
+    <div>
+      <div class="section-label" style="margin-bottom:12px">Guilt trips 👀</div>
+      <div class="guilt-list" id="guiltList"></div>
+      <div class="section-label" style="margin-bottom:12px;margin-top:20px">Skipped today</div>
+      <div class="skipped-list" id="skippedList"></div>
+      <button class="secondary" style="margin-top:20px" onclick="resetResults()">← Back to backlog</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let items = [];
+let energy = 'medium';
+
+function setEnergy(level, btn) {
+  energy = level;
+  document.querySelectorAll('.energy-btn').forEach(b => b.className = b.className.replace(' active', ''));
+  btn.className += ' active';
+}
+
+async function loadFromDB() {
+  try {
+    const r = await fetch(`${API}/db/learning`);
+    items = await r.json();
+    renderItems();
+  } catch (e) {
+    document.getElementById('itemsGrid').innerHTML = '<div class="empty-state">Could not connect to server.</div>';
+  }
+}
+
+async function addItem() {
+  const id = `learn_${Date.now()}`;
+  const item = { id, title: '', url: '', type: 'article', topic: '', minutes: 15, status: 'not-started', days_stale: 0 };
+  await fetch(`${API}/db/learning`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item)
+  });
+  items.unshift(item);
+  renderItems();
+  // Focus new title field
+  setTimeout(() => document.getElementById(`title_${id}`)?.focus(), 50);
+}
+
+async function saveItem(id) {
+  const item = collectItem(id);
+  if (!item) return;
+  await fetch(`${API}/db/learning`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item)
+  });
+  const idx = items.findIndex(i => i.id === id);
+  if (idx !== -1) items[idx] = { ...items[idx], ...item };
+}
+
+function collectItem(id) {
+  const title = document.getElementById(`title_${id}`)?.value;
+  if (!title) return null;
+  return {
+    id,
+    title,
+    url: document.getElementById(`url_${id}`)?.value || '',
+    type: document.getElementById(`type_${id}`)?.value || 'article',
+    topic: document.getElementById(`topic_${id}`)?.value || '',
+    minutes: parseInt(document.getElementById(`minutes_${id}`)?.value) || 15,
+    status: document.getElementById(`status_${id}`)?.value || 'not-started',
+    days_stale: parseInt(document.getElementById(`days_${id}`)?.value) || 0
+  };
+}
+
+async function removeItem(id) {
+  await fetch(`${API}/db/learning/${id}`, { method: 'DELETE' });
+  items = items.filter(i => i.id !== id);
+  renderItems();
+}
+
+async function cycleStatus(id) {
+  const sel = document.getElementById(`status_${id}`);
+  const states = ['not-started', 'in-progress', 'done'];
+  const next = states[(states.indexOf(sel.value) + 1) % states.length];
+  sel.value = next;
+  updateStatusTag(id, next);
+  await fetch(`${API}/db/learning/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: next })
+  });
+}
+
+function updateStatusTag(id, status) {
+  const tag = document.getElementById(`statustag_${id}`);
+  if (tag) { tag.className = `status-tag ${status}`; tag.textContent = status.replace('-', ' '); }
+}
+
+function renderItems() {
+  const grid = document.getElementById('itemsGrid');
+  if (items.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No learning items yet. Add one above.</div>';
+    document.getElementById('orchestrateBtn').disabled = true;
+    return;
+  }
+  grid.innerHTML = items.map(item => `
+    <div class="item-card">
+      <div class="item-card-row1">
+        <input id="title_${item.id}" value="${esc(item.title)}" placeholder="Title" onblur="saveItem('${item.id}')" />
+        <select id="type_${item.id}" onchange="saveItem('${item.id}')">
+          <option value="article" ${item.type==='article'?'selected':''}>Article</option>
+          <option value="video" ${item.type==='video'?'selected':''}>YouTube</option>
+          <option value="course" ${item.type==='course'?'selected':''}>Course</option>
+        </select>
+        <input id="topic_${item.id}" value="${esc(item.topic)}" placeholder="Topic" onblur="saveItem('${item.id}')" />
+        <input id="minutes_${item.id}" type="number" min="1" max="180" value="${item.minutes}" placeholder="min" onblur="saveItem('${item.id}')" />
+        <button class="remove-btn" onclick="removeItem('${item.id}')">×</button>
+      </div>
+      <div class="item-card-row2">
+        <input id="url_${item.id}" type="url" value="${esc(item.url)}" placeholder="URL (optional)" onblur="saveItem('${item.id}')" />
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          <span style="font-size:11px;color:var(--muted)">stale</span>
+          <input id="days_${item.id}" type="number" min="0" value="${item.days_stale}" style="width:52px" onblur="saveItem('${item.id}')" />
+          <input id="status_${item.id}" type="hidden" value="${item.status}" />
+          <span class="status-tag ${item.status}" id="statustag_${item.id}" onclick="cycleStatus('${item.id}')" title="Click to cycle">${item.status.replace('-', ' ')}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('orchestrateBtn').disabled = false;
+}
+
+async function runOrchestration() {
+  const itemsData = items.filter(i => i.status !== 'done').map(item => collectItem(item.id) || item);
+  if (itemsData.length === 0) return;
+
+  document.getElementById('orchestrateError').className = 'error-msg';
+  document.getElementById('orchestrateSpinner').className = 'spinner-row active';
+  document.getElementById('orchestrateBtn').disabled = true;
+
+  try {
+    const r = await fetch(`${API}/learning-orchestrate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsData, energy, available_minutes: parseInt(document.getElementById('availableMinutes').value) || 20 })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    renderResults(data, itemsData);
+  } catch (err) {
+    document.getElementById('orchestrateError').textContent = 'Error: ' + err.message;
+    document.getElementById('orchestrateError').className = 'error-msg active';
+  } finally {
+    document.getElementById('orchestrateSpinner').className = 'spinner-row';
+    document.getElementById('orchestrateBtn').disabled = false;
+  }
+}
+
+function renderResults(data, itemsData) {
+  const itemMap = {};
+  itemsData.forEach(i => itemMap[i.id] = i);
+  const sprint = (data.sprint || []).sort((a, b) => a.order - b.order);
+  document.getElementById('sprintTotal').textContent = `${data.total_minutes || 0} min`;
+  document.getElementById('sprintList').innerHTML = sprint.map(s => {
+    const item = itemMap[s.id] || {};
+    return `<div class="sprint-item">
+      <div class="sprint-order">${s.order}</div>
+      <div class="sprint-body">
+        <div class="sprint-title">${esc(item.title || s.id)}</div>
+        <div class="sprint-nudge">"${esc(s.nudge)}"</div>
+        <div class="sprint-meta">
+          <span class="type-tag ${item.type}">${item.type||''}</span>
+          <span>${s.minutes} min</span>
+          ${item.url ? `<a href="${esc(item.url)}" target="_blank">Open →</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:12px;padding:16px 0">No items fit your available time.</div>';
+
+  const guilt = data.stale_guilt || [];
+  document.getElementById('guiltList').innerHTML = guilt.length > 0
+    ? guilt.map(g => `<div class="guilt-item"><div class="guilt-title">${esc(itemMap[g.id]?.title||g.id)}</div><div class="guilt-msg">${esc(g.message)}</div></div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No stale items.</div>';
+
+  const skipped = data.skipped || [];
+  document.getElementById('skippedList').innerHTML = skipped.length > 0
+    ? skipped.map(s => `<div class="skipped-item"><span class="skipped-title">${esc(itemMap[s.id]?.title||s.id)}</span><span class="skipped-reason">${esc(s.reason)}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">Everything made it in.</div>';
+
+  document.getElementById('results').className = 'results-grid active';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetResults() { document.getElementById('results').className = 'results-grid'; }
+
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+loadFromDB();
+</script>
+</body>
+</html>

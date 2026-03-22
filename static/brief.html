@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080909;
+    --surface: #0f1012;
+    --surface2: #161819;
+    --border: #1e2124;
+    --border2: #2a2d32;
+    --accent: #c8f04e;
+    --accent-dim: rgba(200,240,78,0.08);
+    --text: #dfe2e8;
+    --muted: #565b66;
+    --muted2: #3a3f47;
+    --red: #ff5e5e;
+    --amber: #f5a623;
+    --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace;
+    --display: 'Playfair Display', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .hero {
+    position: relative;
+    padding: 80px 40px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+    z-index: 1;
+  }
+
+  .hero-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 64px;
+  }
+
+  .logo-mark { display: flex; flex-direction: column; gap: 2px; }
+
+  .logo-name {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0;
+    animation: reveal 0.6s ease 0.1s forwards;
+  }
+
+  .logo-tagline {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0;
+    animation: reveal 0.6s ease 0.2s forwards;
+  }
+
+  .hero-nav {
+    display: flex;
+    gap: 24px;
+    opacity: 0;
+    animation: reveal 0.6s ease 0.3s forwards;
+  }
+
+  .hero-nav a {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    padding-bottom: 2px;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .hero-nav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .headline-line {
+    display: block;
+    font-family: var(--display);
+    font-size: clamp(48px, 7vw, 88px);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    color: var(--text);
+    opacity: 0;
+  }
+  .headline-line.italic { font-style: italic; color: var(--accent); }
+  .headline-line:nth-child(1) { animation: reveal 0.7s ease 0.3s forwards; }
+  .headline-line:nth-child(2) { animation: reveal 0.7s ease 0.45s forwards; }
+  .headline-line:nth-child(3) { animation: reveal 0.7s ease 0.6s forwards; }
+
+  .hero-sub {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.8;
+    max-width: 420px;
+    opacity: 0;
+    animation: reveal 0.7s ease 0.75s forwards;
+    margin-bottom: 40px;
+    margin-top: 32px;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+    animation: reveal 0.6s ease 0.9s forwards;
+    flex-wrap: wrap;
+  }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted2); transition: all 0.3s; }
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.err { background: var(--red); }
+  .status-text { font-size: 11px; color: var(--muted); }
+  .date-pill { font-size: 11px; color: var(--muted); border: 1px solid var(--border2); padding: 4px 12px; border-radius: 20px; }
+
+  /* Graph status bar */
+  .graph-status {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    gap: 8px;
+    flex-direction: column;
+  }
+  .graph-status.active { display: flex; }
+
+  .graph-status-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+
+  .graph-nodes { display: flex; gap: 0; align-items: center; flex-wrap: wrap; }
+
+  .graph-node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--muted2);
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    transition: all 0.3s;
+    background: var(--surface2);
+  }
+  .graph-node.running { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.05); }
+  .graph-node.done { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .graph-node.skipped { opacity: 0.3; }
+
+  .graph-arrow { color: var(--border2); font-size: 12px; padding: 0 6px; flex-shrink: 0; }
+
+  .parallel-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 6px 8px;
+    background: rgba(200,240,78,0.02);
+  }
+  .parallel-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted2); margin-bottom: 4px; }
+  .parallel-nodes { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  /* Brief section */
+  .brief-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 40px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .brief-trigger {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: reveal 0.7s ease 1s forwards;
+  }
+
+  .brief-trigger-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .brief-trigger-title { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+
+  .brief-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .energy-btns { display: flex; gap: 5px; }
+  .ebtn {
+    font-size: 10px; padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border2); color: var(--muted);
+    background: transparent; cursor: pointer; font-family: var(--mono); transition: all 0.15s;
+  }
+  .ebtn.high.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .ebtn.medium.active { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.08); }
+  .ebtn.low.active { border-color: var(--blue); color: var(--blue); background: rgba(126,184,247,0.08); }
+
+  input[type="number"] {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    outline: none;
+    width: 70px;
+    text-align: center;
+  }
+  input[type="number"]:focus { border-color: var(--accent); }
+
+  .data-inputs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .data-inputs { grid-template-columns: repeat(2, 1fr); } }
+
+  .data-group { display: flex; flex-direction: column; gap: 6px; }
+  .data-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    outline: none;
+    resize: vertical;
+    line-height: 1.6;
+    transition: border-color 0.2s;
+    min-height: 80px;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted2); }
+
+  .brief-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  button.run-btn {
+    background: var(--accent); border: none; color: #080909;
+    font-family: var(--mono); font-weight: 500; font-size: 11px;
+    padding: 10px 28px; border-radius: 3px; cursor: pointer;
+    letter-spacing: 1.5px; text-transform: uppercase; transition: all 0.15s;
+  }
+  button.run-btn:hover { background: #d6ff52; }
+  button.run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  button.ghost {
+    background: transparent; border: 1px solid var(--border2); color: var(--muted);
+    font-family: var(--mono); font-size: 11px; padding: 9px 16px;
+    border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  }
+  button.ghost:hover { border-color: var(--text); color: var(--text); }
+
+  .spinner-wrap { display: none; align-items: center; gap: 10px; }
+  .spinner-wrap.active { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: rgba(255,94,94,0.08); border: 1px solid rgba(255,94,94,0.2);
+    color: var(--red); padding: 10px 14px; border-radius: 3px;
+    font-size: 11px; margin-top: 12px; display: none;
+  }
+  .error-msg.active { display: block; }
+
+  /* HITL Panel */
+  .hitl-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--amber);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 24px;
+    animation: reveal 0.4s ease forwards;
+  }
+  .hitl-panel.active { display: block; }
+
+  .hitl-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .hitl-icon { font-size: 18px; }
+
+  .hitl-title { font-family: var(--display); font-size: 16px; color: var(--amber); }
+
+  .hitl-subtitle { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+
+  .hitl-items { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+  .hitl-item {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hitl-item-desc { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .hitl-item-type { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .hitl-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .hitl-btn {
+    font-size: 10px; padding: 5px 12px; border-radius: 3px;
+    border: 1px solid var(--border2); color: var(--muted);
+    background: transparent; cursor: pointer; font-family: var(--mono);
+    transition: all 0.15s; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .hitl-btn.selected-allow { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .hitl-btn.selected-block { border-color: var(--red); color: var(--red); background: rgba(255,94,94,0.08); }
+  .hitl-btn.selected-acknowledge { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.08); }
+  .hitl-btn.selected-drop { border-color: var(--muted); color: var(--muted); }
+
+  button.hitl-submit {
+    background: var(--amber); border: none; color: #080909;
+    font-family: var(--mono); font-weight: 500; font-size: 11px;
+    padding: 9px 20px; border-radius: 3px; cursor: pointer;
+    letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s;
+  }
+  button.hitl-submit:hover { background: #f7b93e; }
+
+  /* Summary */
+  .summary-section { display: none; margin-bottom: 32px; }
+  .summary-section.active { display: block; animation: reveal 0.5s ease forwards; }
+
+  .summary-text {
+    font-family: var(--display);
+    font-size: 18px; font-weight: 400; line-height: 1.7;
+    color: var(--text); border-left: 2px solid var(--accent);
+    padding-left: 20px; margin-bottom: 24px; font-style: italic;
+  }
+
+  .stats-strip {
+    display: flex; gap: 0;
+    border: 1px solid var(--border2);
+    border-radius: 4px; overflow: hidden;
+  }
+
+  .stat-block {
+    flex: 1; padding: 16px 20px;
+    border-right: 1px solid var(--border2); text-align: center;
+  }
+  .stat-block:last-child { border-right: none; }
+
+  .stat-num { font-family: var(--display); font-size: 28px; font-weight: 400; display: block; margin-bottom: 4px; }
+  .stat-num.accent { color: var(--accent); }
+  .stat-num.red { color: var(--red); }
+  .stat-num.amber { color: var(--amber); }
+  .stat-num.blue { color: var(--blue); }
+  .stat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  /* Agent cards */
+  .agents-section { display: none; }
+  .agents-section.active { display: block; }
+
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-bottom: 16px;
+  }
+  @media (max-width: 900px) { .agents-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .agents-grid { grid-template-columns: 1fr; } }
+
+  .agent-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .agent-card:hover { border-color: var(--accent); background: var(--surface2); }
+  .agent-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .agent-card:hover::before { transform: scaleX(1); }
+  .agent-card.skipped { opacity: 0.4; }
+
+  .agent-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .agent-name { font-family: var(--display); font-size: 16px; font-weight: 400; color: var(--text); line-height: 1.2; }
+  .agent-name em { font-style: italic; color: var(--accent); }
+
+  .agent-badge {
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px; flex-shrink: 0;
+  }
+  .agent-badge.ok { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(200,240,78,0.2); }
+  .agent-badge.warn { background: rgba(245,166,35,0.08); color: var(--amber); border: 1px solid rgba(245,166,35,0.2); }
+  .agent-badge.alert { background: rgba(255,94,94,0.08); color: var(--red); border: 1px solid rgba(255,94,94,0.2); }
+  .agent-badge.muted { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
+  .agent-badge.skip { background: transparent; color: var(--muted2); border: 1px solid var(--border); }
+
+  .agent-content { flex: 1; }
+  .agent-items { display: flex; flex-direction: column; gap: 6px; }
+  .agent-item {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px;
+  }
+  .agent-item:last-child { border-bottom: none; }
+  .item-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .item-dot.accent { background: var(--accent); }
+  .item-dot.red { background: var(--red); }
+  .item-dot.amber { background: var(--amber); }
+  .item-dot.blue { background: var(--blue); }
+  .item-dot.muted { background: var(--muted2); }
+  .item-text { color: var(--muted); line-height: 1.4; }
+  .item-text strong { color: var(--text); font-weight: 500; }
+  .agent-empty { font-size: 11px; color: var(--muted2); font-style: italic; }
+
+  .agent-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; }
+  .go-deeper {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; transition: color 0.15s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .go-deeper:hover { color: var(--accent); }
+  .go-deeper::after { content: '→'; transition: transform 0.15s; }
+  .go-deeper:hover::after { transform: translateX(3px); }
+  .agent-stat { font-size: 11px; color: var(--muted); }
+  .agent-stat span { color: var(--accent); font-family: var(--display); font-size: 16px; }
+
+  .bottom-strip {
+    max-width: 1100px; margin: 0 auto 60px;
+    padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    opacity: 0; animation: reveal 0.6s ease 1.2s forwards;
+    position: relative; z-index: 1;
+  }
+  .bottom-links { display: flex; gap: 20px; flex-wrap: wrap; }
+  .bottom-links a { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; transition: color 0.15s; }
+  .bottom-links a:hover { color: var(--accent); }
+  .bottom-reset { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); cursor: pointer; background: none; border: none; font-family: var(--mono); transition: color 0.15s; display: none; }
+  .bottom-reset:hover { color: var(--accent); }
+  .bottom-reset.visible { display: block; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-top">
+    <div class="logo-mark">
+      <span class="logo-name">Tesseract</span>
+      <span class="logo-tagline">Personal Context Intelligence</span>
+    </div>
+    <nav class="hero-nav">
+      <a href="index.html">Inbox</a>
+      <a href="research.html">Research</a>
+      <a href="commitments.html">Commitments</a>
+      <a href="guardian.html">Guardian</a>
+      <a href="social.html">Social</a>
+      <a href="learning.html">Learning</a>
+    </nav>
+  </div>
+
+  <div>
+    <span class="headline-line">Your morning</span>
+    <span class="headline-line italic">intelligence layer.</span>
+    <span class="headline-line">Six agents. One brief.</span>
+  </div>
+
+  <p class="hero-sub">Tesseract sits between you and the noise — triaging your inbox, guarding your attention, tracking what you owe, curating what matters.</p>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">checking ollama...</span>
+    <span class="date-pill" id="datePill"></span>
+  </div>
+</div>
+
+<div class="brief-section">
+
+  <!-- LangGraph status -->
+  <div class="graph-status" id="graphStatus">
+    <div class="graph-status-title">LangGraph execution</div>
+    <div class="graph-nodes" id="graphNodes">
+      <div class="graph-node" id="gn-router">router</div>
+      <div class="graph-arrow">→</div>
+      <div class="parallel-group" id="gn-parallel">
+        <div class="parallel-label">parallel</div>
+        <div class="parallel-nodes">
+          <div class="graph-node" id="gn-triage">triage</div>
+          <div class="graph-node" id="gn-guardian">guardian</div>
+          <div class="graph-node" id="gn-commitments">commitments</div>
+          <div class="graph-node" id="gn-social">social</div>
+          <div class="graph-node" id="gn-learning">learning</div>
+        </div>
+      </div>
+      <div class="graph-arrow">→</div>
+      <div class="graph-node" id="gn-hitl">hitl gate</div>
+      <div class="graph-arrow">→</div>
+      <div class="graph-node" id="gn-synthesize">synthesize</div>
+    </div>
+  </div>
+
+  <!-- Setup -->
+  <div class="brief-trigger">
+    <div class="brief-trigger-top">
+      <div class="brief-trigger-title">Daily brief setup</div>
+      <div class="brief-controls">
+        <div class="energy-btns">
+          <button class="ebtn high" onclick="setEnergy('high',this)">⚡ High</button>
+          <button class="ebtn medium active" onclick="setEnergy('medium',this)">〜 Medium</button>
+          <button class="ebtn low" onclick="setEnergy('low',this)">🌙 Low</button>
+        </div>
+        <input type="number" id="minutesInput" value="20" min="5" max="120" />
+        <span style="font-size:10px;color:var(--muted)">min</span>
+      </div>
+    </div>
+
+    <div class="data-inputs">
+      <div class="data-group">
+        <div class="data-label">Emails / Messages</div>
+        <textarea id="messagesInput" placeholder="From | Subject | Body&#10;&#10;Priya (CEO) | Board deck | Review by 5pm"></textarea>
+      </div>
+      <div class="data-group">
+        <div class="data-label">Notifications</div>
+        <textarea id="notifsInput" placeholder="From | Preview&#10;&#10;Rahul | Deployment blocked&#10;GitHub | Build passed"></textarea>
+      </div>
+      <div class="data-group">
+        <div class="data-label">Commitments</div>
+        <textarea id="commitmentsInput" placeholder="Task | Owner | Urgency | Days stale&#10;&#10;Send report | You | high | 2"></textarea>
+      </div>
+      <div class="data-group">
+        <div class="data-label">Social posts</div>
+        <textarea id="postsInput" placeholder="Author | Platform | Content&#10;&#10;Karpathy | twitter | LLMs have no memory..."></textarea>
+      </div>
+      <div class="data-group">
+        <div class="data-label">Learning items</div>
+        <textarea id="learningInput" placeholder="Title | Type | Topic | Min | Days stale&#10;&#10;Transformer paper | article | AI | 25 | 12"></textarea>
+      </div>
+    </div>
+
+    <div class="brief-actions">
+      <button class="run-btn" id="briefBtn" onclick="runBrief()">Generate Brief →</button>
+      <button class="ghost" onclick="loadSample()">Load sample</button>
+      <div class="spinner-wrap" id="briefSpinner">
+        <div class="spinner"></div>
+        <span style="font-size:11px;color:var(--muted)" id="spinnerText">Running agents in parallel...</span>
+      </div>
+    </div>
+    <div class="error-msg" id="briefError"></div>
+  </div>
+
+  <!-- HITL Panel -->
+  <div class="hitl-panel" id="hitlPanel">
+    <div class="hitl-header">
+      <span class="hitl-icon">⚠</span>
+      <span class="hitl-title">Human review required</span>
+    </div>
+    <div class="hitl-subtitle">The Guardian is uncertain about some decisions. Review and confirm before the brief is finalized.</div>
+    <div class="hitl-items" id="hitlItems"></div>
+    <button class="hitl-submit" onclick="submitHITL()">Confirm decisions → Finalize brief</button>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-section" id="summarySection">
+    <div class="summary-text" id="summaryText"></div>
+    <div class="stats-strip">
+      <div class="stat-block"><span class="stat-num accent" id="statPriority">0</span><span class="stat-label">Priority msgs</span></div>
+      <div class="stat-block"><span class="stat-num accent" id="statAllowed">0</span><span class="stat-label">Allowed</span></div>
+      <div class="stat-block"><span class="stat-num red" id="statBlocked">0</span><span class="stat-label">Blocked</span></div>
+      <div class="stat-block"><span class="stat-num amber" id="statOverdue">0</span><span class="stat-label">Overdue</span></div>
+      <div class="stat-block"><span class="stat-num blue" id="statLearning">0</span><span class="stat-label">Learn min</span></div>
+      <div class="stat-block"><span class="stat-num accent" id="statSocial">0</span><span class="stat-label">Social picks</span></div>
+    </div>
+  </div>
+
+  <!-- Agent Cards -->
+  <div class="agents-section" id="agentsSection">
+    <div class="agents-grid">
+      <div class="agent-card" id="card-triage">
+        <div class="agent-card-header">
+          <div class="agent-name">Inbox <em>Triage</em></div>
+          <span class="agent-badge muted" id="badgeTriage">—</span>
+        </div>
+        <div class="agent-content"><div class="agent-items" id="triageItems"><div class="agent-empty">No data yet.</div></div></div>
+        <div class="agent-footer"><a href="index.html" class="go-deeper">Open agent</a></div>
+      </div>
+
+      <div class="agent-card" id="card-guardian">
+        <div class="agent-card-header">
+          <div class="agent-name">Attention <em>Guardian</em></div>
+          <span class="agent-badge muted" id="badgeGuardian">—</span>
+        </div>
+        <div class="agent-content"><div class="agent-items" id="guardianItems"><div class="agent-empty">No data yet.</div></div></div>
+        <div class="agent-footer"><a href="guardian.html" class="go-deeper">Open agent</a><span class="agent-stat" id="statGuardian"></span></div>
+      </div>
+
+      <div class="agent-card" id="card-commitments">
+        <div class="agent-card-header">
+          <div class="agent-name">Commitment <em>Tracker</em></div>
+          <span class="agent-badge muted" id="badgeCommitments">—</span>
+        </div>
+        <div class="agent-content"><div class="agent-items" id="commitmentItems"><div class="agent-empty">No data yet.</div></div></div>
+        <div class="agent-footer"><a href="commitments.html" class="go-deeper">Open agent</a></div>
+      </div>
+
+      <div class="agent-card" id="card-social">
+        <div class="agent-card-header">
+          <div class="agent-name">Social <em>Curator</em></div>
+          <span class="agent-badge muted" id="badgeSocial">—</span>
+        </div>
+        <div class="agent-content"><div class="agent-items" id="socialItems"><div class="agent-empty">No data yet.</div></div></div>
+        <div class="agent-footer"><a href="social.html" class="go-deeper">Open agent</a></div>
+      </div>
+
+      <div class="agent-card" id="card-learning">
+        <div class="agent-card-header">
+          <div class="agent-name">Learning <em>Orchestrator</em></div>
+          <span class="agent-badge muted" id="badgeLearning">—</span>
+        </div>
+        <div class="agent-content"><div class="agent-items" id="learningItems"><div class="agent-empty">No data yet.</div></div></div>
+        <div class="agent-footer"><a href="learning.html" class="go-deeper">Open agent</a><span class="agent-stat" id="statLearningCard"></span></div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-header">
+          <div class="agent-name">Research <em>Condenser</em></div>
+          <span class="agent-badge muted">standalone</span>
+        </div>
+        <div class="agent-content"><div class="agent-empty" style="font-size:12px;color:var(--muted);line-height:1.6">Ask anything. Get a verdict, reasoning, pros/cons and sources from live web search.</div></div>
+        <div class="agent-footer"><a href="research.html" class="go-deeper">Open agent</a></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-strip">
+  <div class="bottom-links">
+    <a href="index.html">Inbox</a>
+    <a href="research.html">Research</a>
+    <a href="commitments.html">Commitments</a>
+    <a href="guardian.html">Guardian</a>
+    <a href="social.html">Social</a>
+    <a href="learning.html">Learning</a>
+  </div>
+  <button class="bottom-reset" id="resetBtn" onclick="resetBrief()">← Reset brief</button>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let energy = 'medium';
+let currentThreadId = null;
+let hitlDecisions = {};
+let lastPayload = null;
+
+document.getElementById('datePill').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+checkHealth();
+
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const data = await r.json();
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    if (data.groq === 'connected') {
+  dot.className = 'status-dot ok';
+  txt.textContent = 'Groq connected — all systems go';
+} else {
+  dot.className = 'status-dot err';
+  txt.textContent = 'Groq unreachable — check API key';
+}
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'backend offline — uvicorn brief:app --port 8000';
+  }
+}
+
+function setEnergy(level, btn) {
+  energy = level;
+  document.querySelectorAll('.ebtn').forEach(b => b.className = b.className.replace(' active', ''));
+  btn.className += ' active';
+}
+
+function loadSample() {
+  document.getElementById('messagesInput').value = `Priya (CEO) | Board deck sign-off | Need your review by 5pm today
+LinkedIn | New connections | You have 8 new connection requests
+Rahul (engineering) | Deployment blocked | Need approval ASAP
+Substack | Productivity reads | Top 10 tools to try`;
+  document.getElementById('notifsInput').value = `Priya (CEO) | Board deck needs sign-off today
+Rahul | Blocked on deployment, need approval ASAP
+GitHub Actions | Build #145 passed
+LinkedIn | 12 new connection requests`;
+  document.getElementById('commitmentsInput').value = `Send report to client | You | high | 2
+Review budget proposal | You | medium | 0
+Follow up with design team | You | medium | 7`;
+  document.getElementById('postsInput').value = `Andrej Karpathy | twitter | The real bottleneck with LLMs is memory architecture. Every conversation starts from zero.
+Growth Hacker Pro | twitter | 10 PRODUCTIVITY HACKS that will CHANGE YOUR LIFE!!
+Sarah Chen | linkedin | After 3 years in AI: distribution beats product quality 9 times out of 10.`;
+  document.getElementById('learningInput').value = `Transformer paper | article | AI | 25 | 12
+Karpathy GPT video | video | AI | 90 | 3
+LangGraph docs | article | AI | 20 | 2
+Figma prototyping | video | design | 20 | 21`;
+}
+
+// Graph node animation
+function setNode(id, state) {
+  const el = document.getElementById(`gn-${id}`);
+  if (el) el.className = `graph-node ${state}`;
+}
+
+function animateGraph(agentsRun) {
+  setNode('router', 'running');
+  setTimeout(() => {
+    setNode('router', 'done');
+    // Show parallel agents
+    const agents = ['triage', 'guardian', 'commitments', 'social', 'learning'];
+    agents.forEach(a => {
+      if (agentsRun && agentsRun[a] === false) {
+        setNode(a, 'skipped');
+      } else {
+        setNode(a, 'running');
+      }
+    });
+    setTimeout(() => {
+      agents.forEach(a => setNode(a, agentsRun && agentsRun[a] === false ? 'skipped' : 'done'));
+      setNode('hitl', 'running');
+      setTimeout(() => {
+        setNode('hitl', 'done');
+        setNode('synthesize', 'running');
+        setTimeout(() => setNode('synthesize', 'done'), 2000);
+      }, 1000);
+    }, 3000);
+  }, 800);
+}
+
+// Parsers
+function parseMessages(raw) {
+  return raw.split('\n').filter(l => l.trim()).map((line, i) => {
+    const p = line.split('|').map(x => x.trim());
+    return { id: `msg_${i+1}`, from: p[0]||'Unknown', subject: p[1]||'', body: p[2]||'', channel: 'email' };
+  });
+}
+function parseNotifs(raw) {
+  return raw.split('\n').filter(l => l.trim()).map((line, i) => {
+    const p = line.split('|').map(x => x.trim());
+    return { id: `notif_${i+1}`, from: p[0]||'Unknown', preview: p[1]||'', channel: 'unknown' };
+  });
+}
+function parseCommitments(raw) {
+  return raw.split('\n').filter(l => l.trim()).map((line, i) => {
+    const p = line.split('|').map(x => x.trim());
+    return { id: `comm_${i+1}`, task: p[0]||'', owner: p[1]||'You', urgency: p[2]||'medium', days_stale: parseInt(p[3])||0, status: 'pending' };
+  });
+}
+function parsePosts(raw) {
+  return raw.split('\n').filter(l => l.trim()).map((line, i) => {
+    const p = line.split('|').map(x => x.trim());
+    return { id: `post_${i+1}`, author: p[0]||'Unknown', platform: p[1]||'twitter', content: p[2]||'', days_since_engaged: 0 };
+  });
+}
+function parseLearning(raw) {
+  return raw.split('\n').filter(l => l.trim()).map((line, i) => {
+    const p = line.split('|').map(x => x.trim());
+    return { id: `learn_${i+1}`, title: p[0]||'', type: p[1]||'article', topic: p[2]||'', minutes: parseInt(p[3])||15, days_stale: parseInt(p[4])||0, status: 'not-started', url: '' };
+  });
+}
+
+async function runBrief() {
+  document.getElementById('briefError').className = 'error-msg';
+  document.getElementById('briefBtn').disabled = true;
+  document.getElementById('briefSpinner').className = 'spinner-wrap active';
+  document.getElementById('summarySection').className = 'summary-section';
+  document.getElementById('agentsSection').className = 'agents-section';
+  document.getElementById('hitlPanel').className = 'hitl-panel';
+  document.getElementById('graphStatus').className = 'graph-status active';
+
+  // Reset graph nodes
+  ['router','triage','guardian','commitments','social','learning','hitl','synthesize'].forEach(n => setNode(n, ''));
+
+  currentThreadId = 'thread_' + Date.now();
+
+  const messages = parseMessages(document.getElementById('messagesInput').value);
+  const notifications = parseNotifs(document.getElementById('notifsInput').value);
+  const commitments = parseCommitments(document.getElementById('commitmentsInput').value);
+  const posts = parsePosts(document.getElementById('postsInput').value);
+  const learning_items = parseLearning(document.getElementById('learningInput').value);
+
+  lastPayload = { messages, notifications, commitments, posts, learning_items };
+
+  try {
+    const r = await fetch(`${API}/daily-brief`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages, notifications, commitments, posts, learning_items,
+        interests: ['AI', 'startups', 'product'],
+        energy,
+        available_minutes: parseInt(document.getElementById('minutesInput').value) || 20,
+        rules: [],
+        thread_id: currentThreadId
+      })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    animateGraph(data.agents_run);
+
+    // Check for HITL items
+    if (data.hitl_pending && data.hitl_pending.length > 0) {
+      renderHITL(data.hitl_pending);
+      renderDashboard(data, lastPayload); // render partial brief too
+    } else {
+      renderDashboard(data, lastPayload);
+    }
+
+  } catch (err) {
+    document.getElementById('briefError').textContent = 'Error: ' + err.message;
+    document.getElementById('briefError').className = 'error-msg active';
+  } finally {
+    document.getElementById('briefSpinner').className = 'spinner-wrap';
+    document.getElementById('briefBtn').disabled = false;
+  }
+}
+
+function renderHITL(items) {
+  hitlDecisions = {};
+  const container = document.getElementById('hitlItems');
+  container.innerHTML = items.map(item => `
+    <div class="hitl-item">
+      <div>
+        <div class="hitl-item-desc">${esc(item.description)}</div>
+        <div class="hitl-item-type">${esc(item.type.replace('_', ' '))}</div>
+      </div>
+      <div class="hitl-item-actions" id="hitl-actions-${item.id}">
+        ${item.options.map(opt => `
+          <button class="hitl-btn" onclick="selectHITL('${item.id}', '${opt}', this)">${opt}</button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('hitlPanel').className = 'hitl-panel active';
+}
+
+function selectHITL(id, decision, btn) {
+  hitlDecisions[id] = decision;
+  const container = document.getElementById(`hitl-actions-${id}`);
+  container.querySelectorAll('.hitl-btn').forEach(b => {
+    b.className = 'hitl-btn';
+  });
+  btn.className = `hitl-btn selected-${decision}`;
+}
+
+async function submitHITL() {
+  const decisions = Object.entries(hitlDecisions).map(([id, decision]) => ({ id, decision }));
+  if (decisions.length === 0) return;
+
+  try {
+    const r = await fetch(`${API}/hitl-resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: currentThreadId, decisions })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('hitlPanel').className = 'hitl-panel';
+    renderDashboard(data, lastPayload);
+  } catch (err) {
+    alert('Error resolving HITL: ' + err.message);
+  }
+}
+
+function renderDashboard(data, payload) {
+  const stats = data.stats || {};
+  document.getElementById('summaryText').textContent = data.summary || '';
+  document.getElementById('statPriority').textContent = stats.priority_messages || 0;
+  document.getElementById('statAllowed').textContent = stats.notifications_allowed || 0;
+  document.getElementById('statBlocked').textContent = stats.notifications_blocked || 0;
+  document.getElementById('statOverdue').textContent = stats.overdue_commitments || 0;
+  document.getElementById('statLearning').textContent = stats.learning_minutes || 0;
+  document.getElementById('statSocial').textContent = stats.social_picks || 0;
+  document.getElementById('summarySection').className = 'summary-section active';
+
+  const agentsRun = data.agents_run || {};
+
+  // Triage
+  const priority = data.triage?.priority || [];
+  const msgMap = {}; (payload.messages||[]).forEach(m => msgMap[m.id] = m);
+  document.getElementById('badgeTriage').className = `agent-badge ${priority.length > 0 ? 'alert' : 'ok'}`;
+  document.getElementById('badgeTriage').textContent = `${priority.length} priority`;
+  document.getElementById('triageItems').innerHTML = priority.length > 0
+    ? priority.slice(0,3).map(p => `<div class="agent-item"><div class="item-dot accent"></div><div class="item-text"><strong>${esc(msgMap[p.id]?.from || p.id)}</strong> — ${esc(p.reason)}</div></div>`).join('')
+    : '<div class="agent-empty">Inbox clear.</div>';
+  if (!agentsRun.triage) document.getElementById('card-triage').className = 'agent-card skipped';
+
+  // Guardian
+  const decisions = data.guardian?.decisions || [];
+  const blocked = decisions.filter(d => d.decision === 'block');
+  const allowed = decisions.filter(d => d.decision === 'allow');
+  const notifMap = {}; (payload.notifications||[]).forEach(n => notifMap[n.id] = n);
+  document.getElementById('badgeGuardian').className = `agent-badge ${blocked.length > 0 ? 'ok' : 'muted'}`;
+  document.getElementById('badgeGuardian').textContent = `${blocked.length} blocked`;
+  document.getElementById('guardianItems').innerHTML = decisions.length > 0
+    ? decisions.slice(0,4).map(d => `<div class="agent-item"><div class="item-dot ${d.decision === 'allow' ? 'accent' : 'red'}"></div><div class="item-text"><strong>${esc(notifMap[d.id]?.from || d.id)}</strong> → ${d.decision}${d.human_override ? ' <span style="color:var(--amber);font-size:10px">(overridden)</span>' : ''}</div></div>`).join('')
+    : '<div class="agent-empty">No notifications.</div>';
+  document.getElementById('statGuardian').innerHTML = `<span>${allowed.length}</span> allowed`;
+  if (!agentsRun.guardian) document.getElementById('card-guardian').className = 'agent-card skipped';
+
+  // Commitments
+  const pending = data.commitments?.pending || [];
+  const overdue = data.commitments?.overdue || [];
+  document.getElementById('badgeCommitments').className = `agent-badge ${overdue.length > 0 ? 'warn' : 'ok'}`;
+  document.getElementById('badgeCommitments').textContent = overdue.length > 0 ? `${overdue.length} overdue` : `${pending.length} pending`;
+  document.getElementById('commitmentItems').innerHTML = pending.length > 0
+    ? pending.slice(0,3).map(c => `<div class="agent-item"><div class="item-dot ${c.urgency === 'high' ? 'red' : c.urgency === 'medium' ? 'amber' : 'muted'}"></div><div class="item-text"><strong>${esc(c.task)}</strong> — ${c.urgency}</div></div>`).join('')
+    : '<div class="agent-empty">No pending commitments.</div>';
+
+  // Social
+  const picks = data.social?.top_picks || [];
+  const postMap = {}; (payload.posts||[]).forEach(p => postMap[p.id] = p);
+  document.getElementById('badgeSocial').className = `agent-badge ${picks.length > 0 ? 'ok' : 'muted'}`;
+  document.getElementById('badgeSocial').textContent = `${picks.length} picks`;
+  document.getElementById('socialItems').innerHTML = picks.length > 0
+    ? picks.slice(0,3).map(p => `<div class="agent-item"><div class="item-dot accent"></div><div class="item-text"><strong>${esc(postMap[p.id]?.author || p.id)}</strong> — ${esc(p.why_engage)}</div></div>`).join('')
+    : '<div class="agent-empty">No social picks.</div>';
+  if (!agentsRun.social) document.getElementById('card-social').className = 'agent-card skipped';
+
+  // Learning
+  const sprint = (data.learning?.sprint || []).sort((a,b) => a.order - b.order);
+  const learnMap = {}; (payload.learning_items||[]).forEach(l => learnMap[l.id] = l);
+  document.getElementById('badgeLearning').className = `agent-badge ${sprint.length > 0 ? 'ok' : 'muted'}`;
+  document.getElementById('badgeLearning').textContent = `${data.learning?.total_minutes || 0} min`;
+  document.getElementById('learningItems').innerHTML = sprint.length > 0
+    ? sprint.slice(0,3).map(s => `<div class="agent-item"><div class="item-dot blue"></div><div class="item-text"><strong>${esc(learnMap[s.id]?.title || s.id)}</strong> — ${s.minutes} min</div></div>`).join('')
+    : '<div class="agent-empty">No sprint.</div>';
+  document.getElementById('statLearningCard').innerHTML = `<span>${sprint.length}</span> items`;
+  if (!agentsRun.learning) document.getElementById('card-learning').className = 'agent-card skipped';
+
+  document.getElementById('agentsSection').className = 'agents-section active';
+  document.getElementById('resetBtn').className = 'bottom-reset visible';
+  document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetBrief() {
+  document.getElementById('summarySection').className = 'summary-section';
+  document.getElementById('agentsSection').className = 'agents-section';
+  document.getElementById('hitlPanel').className = 'hitl-panel';
+  document.getElementById('graphStatus').className = 'graph-status';
+  document.getElementById('resetBtn').className = 'bottom-reset';
+  ['card-triage','card-guardian','card-commitments','card-social','card-learning'].forEach(id => {
+    document.getElementById(id).className = 'agent-card';
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

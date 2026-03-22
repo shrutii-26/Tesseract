@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commitment Tracker — Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #c8f04e; --accent-dim: rgba(200,240,78,0.12);
+    --text: #e8eaf0; --muted: #6b7080; --red: #ff5e5e; --amber: #f5a623; --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace; --serif: 'Fraunces', Georgia, serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; padding: 40px 24px; }
+  header { max-width: 860px; margin: 0 auto 48px; display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  header h1 { font-family: var(--serif); font-weight: 300; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 em { font-style: italic; color: var(--accent); }
+  nav { margin-left: auto; display: flex; gap: 16px; font-size: 11px; letter-spacing: 1px; }
+  nav a { color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--accent); }
+  .container { max-width: 860px; margin: 0 auto; }
+  .section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
+  .panel-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 10px 12px; border-radius: 3px; outline: none; resize: vertical; min-height: 120px; line-height: 1.6; transition: border-color 0.2s; margin-bottom: 10px; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  input[type="text"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 9px 12px; border-radius: 3px; outline: none; transition: border-color 0.2s; margin-bottom: 8px; }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+  select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 10px; border-radius: 3px; outline: none; width: 100%; margin-bottom: 10px; cursor: pointer; }
+  button.primary { background: var(--accent); border: none; color: #0a0b0d; font-family: var(--mono); font-weight: 500; font-size: 11px; padding: 8px 16px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: background 0.15s; width: 100%; }
+  button.primary:hover { background: #d6ff52; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 11px; padding: 8px 16px; border-radius: 3px; cursor: pointer; transition: all 0.15s; width: 100%; }
+  button.secondary:hover { border-color: var(--text); color: var(--text); }
+  .spinner-row { display: none; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-top: 8px; }
+  .spinner-row.active { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .tab { font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border); color: var(--muted); transition: all 0.15s; background: transparent; font-family: var(--mono); }
+  .tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .commitments-list { display: flex; flex-direction: column; gap: 8px; }
+  .empty-state { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 0; border: 1px dashed var(--border); border-radius: 4px; }
+  .commitment-item { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; animation: fadeIn 0.2s ease; transition: opacity 0.3s; }
+  .commitment-item.done { opacity: 0.45; }
+  .commitment-item.dropped { opacity: 0.3; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .urgency-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .urgency-dot.high { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .urgency-dot.medium { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .urgency-dot.low { background: var(--muted); }
+  .commitment-body { flex: 1; min-width: 0; }
+  .commitment-task { font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .commitment-item.done .commitment-task { text-decoration: line-through; color: var(--muted); }
+  .commitment-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .commitment-context { font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 8px; line-height: 1.5; }
+  .commitment-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .action-btn { font-size: 10px; padding: 3px 8px; border-radius: 2px; cursor: pointer; border: 1px solid var(--border); color: var(--muted); background: transparent; font-family: var(--mono); transition: all 0.15s; letter-spacing: 0.5px; }
+  .action-btn.done-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.drop-btn:hover { border-color: var(--red); color: var(--red); }
+  .action-btn.snooze-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 6px; border-radius: 2px; }
+  .tag.high { background: rgba(255,94,94,0.12); color: var(--red); }
+  .tag.medium { background: rgba(245,166,35,0.12); color: var(--amber); }
+  .tag.low { background: rgba(107,112,128,0.12); color: var(--muted); }
+  .tag.done { background: rgba(200,240,78,0.12); color: var(--accent); }
+  .stats-row { display: flex; gap: 20px; margin-bottom: 20px; font-size: 11px; color: var(--muted); }
+  .stat-val { color: var(--text); font-size: 18px; font-family: var(--serif); display: block; }
+  .error-msg { background: rgba(255,94,94,0.1); border: 1px solid rgba(255,94,94,0.3); color: var(--red); padding: 10px 14px; border-radius: 3px; font-size: 12px; margin-top: 8px; display: none; }
+  .error-msg.active { display: block; }
+  .saved-badge { font-size: 10px; color: var(--accent); margin-top: 6px; display: none; }
+  .saved-badge.active { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Commitment <em>Tracker</em></h1>
+  <nav>
+    <a href="brief.html">Home</a>
+    <a href="index.html">Inbox</a>
+    <a href="research.html">Research</a>
+    <a href="commitments.html" class="active">Commitments</a>
+    <a href="guardian.html">Guardian</a>
+    <a href="social.html">Social</a>
+    <a href="learning.html">Learning</a>
+  </nav>
+</header>
+<div class="container">
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-title">Extract from text</div>
+      <textarea id="extractInput" placeholder="Paste an email, Slack message, meeting notes..."></textarea>
+      <button class="primary" id="extractBtn" onclick="extractCommitments()">Extract commitments →</button>
+      <div class="spinner-row" id="extractSpinner"><div class="spinner"></div>Scanning...</div>
+      <div class="error-msg" id="extractError"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Add manually</div>
+      <input type="text" id="manualTask" placeholder="What did you commit to?" />
+      <input type="text" id="manualOwner" placeholder="Owner (default: You)" />
+      <input type="text" id="manualContext" placeholder="Context (optional)" />
+      <select id="manualUrgency">
+        <option value="high">High — today / urgent</option>
+        <option value="medium" selected>Medium — this week</option>
+        <option value="low">Low — someday</option>
+      </select>
+      <button class="primary" onclick="addManual()">Add commitment →</button>
+    </div>
+  </div>
+
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div><span class="stat-val" id="statTotal">0</span>total</div>
+    <div><span class="stat-val" id="statPending">0</span>pending</div>
+    <div><span class="stat-val" id="statDone">0</span>done</div>
+    <div><span class="stat-val" id="statHigh">0</span>high urgency</div>
+  </div>
+
+  <div class="list-header">
+    <div class="section-label" style="margin:0">Your commitments</div>
+    <div class="filter-tabs">
+      <button class="tab active" onclick="setFilter('all', this)">All</button>
+      <button class="tab" onclick="setFilter('pending', this)">Pending</button>
+      <button class="tab" onclick="setFilter('high', this)">High</button>
+      <button class="tab" onclick="setFilter('done', this)">Done</button>
+    </div>
+  </div>
+  <div class="commitments-list" id="commitmentsList">
+    <div class="empty-state">Loading...</div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let commitments = [];
+let currentFilter = 'all';
+let idCounter = 0;
+
+// Load from DB on page load
+async function loadFromDB() {
+  try {
+    const r = await fetch(`${API}/db/commitments`);
+    const data = await r.json();
+    commitments = data;
+    idCounter = commitments.length;
+    renderList();
+  } catch (e) {
+    document.getElementById('commitmentsList').innerHTML = '<div class="empty-state">Could not connect to server.</div>';
+  }
+}
+
+async function extractCommitments() {
+  const text = document.getElementById('extractInput').value.trim();
+  if (!text) return;
+  document.getElementById('extractBtn').disabled = true;
+  document.getElementById('extractSpinner').className = 'spinner-row active';
+  document.getElementById('extractError').className = 'error-msg';
+  try {
+    const r = await fetch(`${API}/extract-commitments`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const found = data.commitments || [];
+    if (found.length === 0) {
+      document.getElementById('extractError').textContent = 'No commitments found.';
+      document.getElementById('extractError').className = 'error-msg active';
+    } else {
+      for (const c of found) {
+        await addCommitment(c.task, c.owner || 'You', c.urgency || 'medium', c.context || '');
+      }
+      document.getElementById('extractInput').value = '';
+    }
+  } catch (err) {
+    document.getElementById('extractError').textContent = 'Error: ' + err.message;
+    document.getElementById('extractError').className = 'error-msg active';
+  } finally {
+    document.getElementById('extractBtn').disabled = false;
+    document.getElementById('extractSpinner').className = 'spinner-row';
+  }
+}
+
+async function addManual() {
+  const task = document.getElementById('manualTask').value.trim();
+  if (!task) return;
+  const owner = document.getElementById('manualOwner').value.trim() || 'You';
+  const context = document.getElementById('manualContext').value.trim();
+  const urgency = document.getElementById('manualUrgency').value;
+  await addCommitment(task, owner, urgency, context);
+  document.getElementById('manualTask').value = '';
+  document.getElementById('manualOwner').value = '';
+  document.getElementById('manualContext').value = '';
+}
+
+async function addCommitment(task, owner, urgency, context) {
+  const id = `comm_${Date.now()}_${++idCounter}`;
+  const item = { id, task, owner, urgency, context, status: 'pending', days_stale: 0 };
+  await fetch(`${API}/db/commitments`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item)
+  });
+  commitments.unshift(item);
+  renderList();
+}
+
+async function markDone(id) {
+  const c = commitments.find(x => x.id === id);
+  if (!c) return;
+  const newStatus = c.status === 'done' ? 'pending' : 'done';
+  await fetch(`${API}/db/commitments/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus })
+  });
+  c.status = newStatus;
+  renderList();
+}
+
+async function markDropped(id) {
+  const c = commitments.find(x => x.id === id);
+  if (!c) return;
+  await fetch(`${API}/db/commitments/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'dropped' })
+  });
+  c.status = 'dropped';
+  renderList();
+}
+
+async function removeCommitment(id) {
+  await fetch(`${API}/db/commitments/${id}`, { method: 'DELETE' });
+  commitments = commitments.filter(x => x.id !== id);
+  renderList();
+}
+
+function setFilter(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.tab').forEach(t => t.className = 'tab');
+  el.className = 'tab active';
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('commitmentsList');
+  let filtered = commitments;
+  if (currentFilter === 'pending') filtered = commitments.filter(c => c.status === 'pending');
+  else if (currentFilter === 'high') filtered = commitments.filter(c => c.urgency === 'high' && c.status === 'pending');
+  else if (currentFilter === 'done') filtered = commitments.filter(c => c.status === 'done');
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state">${commitments.length === 0 ? 'No commitments yet.' : 'Nothing in this filter.'}</div>`;
+  } else {
+    list.innerHTML = filtered.map(c => `
+      <div class="commitment-item ${c.status}">
+        <div class="urgency-dot ${c.urgency}"></div>
+        <div class="commitment-body">
+          <div class="commitment-task">${esc(c.task)}</div>
+          <div class="commitment-meta">${esc(c.owner)} · <span class="tag ${c.status === 'done' ? 'done' : c.urgency}">${c.status === 'done' ? 'done' : c.urgency}</span></div>
+          ${c.context ? `<div class="commitment-context">"${esc(c.context)}"</div>` : ''}
+          <div class="commitment-actions">
+            ${c.status !== 'done' && c.status !== 'dropped' ? `
+              <button class="action-btn done-btn" onclick="markDone('${c.id}')">✓ Done</button>
+              <button class="action-btn drop-btn" onclick="markDropped('${c.id}')">Drop</button>
+            ` : ''}
+            ${c.status === 'done' ? `<button class="action-btn" onclick="markDone('${c.id}')">↩ Undo</button>` : ''}
+            <button class="action-btn drop-btn" onclick="removeCommitment('${c.id}')">Remove</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const total = commitments.length;
+  if (total > 0) {
+    document.getElementById('statsRow').style.display = 'flex';
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statPending').textContent = commitments.filter(c => c.status === 'pending').length;
+    document.getElementById('statDone').textContent = commitments.filter(c => c.status === 'done').length;
+    document.getElementById('statHigh').textContent = commitments.filter(c => c.urgency === 'high' && c.status === 'pending').length;
+  } else {
+    document.getElementById('statsRow').style.display = 'none';
+  }
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('manualTask').addEventListener('keydown', e => { if (e.key === 'Enter') addManual(); });
+loadFromDB();
+</script>
+</body>
+</html>

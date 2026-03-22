@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attention Guardian — Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #c8f04e; --accent-dim: rgba(200,240,78,0.12);
+    --text: #e8eaf0; --muted: #6b7080; --red: #ff5e5e; --red-dim: rgba(255,94,94,0.12);
+    --amber: #f5a623; --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace; --serif: 'Fraunces', Georgia, serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; padding: 40px 24px; }
+  header { max-width: 900px; margin: 0 auto 48px; display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  header h1 { font-family: var(--serif); font-weight: 300; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 em { font-style: italic; color: var(--accent); }
+  nav { margin-left: auto; display: flex; gap: 16px; font-size: 11px; letter-spacing: 1px; }
+  nav a { color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--accent); }
+  .container { max-width: 900px; margin: 0 auto; }
+  .section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .top-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
+  .panel-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .session-status { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .session-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: all 0.3s; flex-shrink: 0; }
+  .session-dot.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .session-label { font-size: 13px; color: var(--muted); }
+  .session-label.active { color: var(--accent); }
+  .timer-display { font-family: var(--serif); font-size: 36px; font-weight: 300; color: var(--text); margin-bottom: 14px; letter-spacing: -1px; }
+  .timer-display.active { color: var(--accent); }
+  .duration-btns { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .dur-btn { font-size: 11px; padding: 5px 10px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); background: transparent; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+  .dur-btn:hover, .dur-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  button.primary { background: var(--accent); border: none; color: #0a0b0d; font-family: var(--mono); font-weight: 500; font-size: 11px; padding: 8px 16px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: background 0.15s; width: 100%; }
+  button.primary:hover { background: #d6ff52; }
+  button.danger { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); font-family: var(--mono); font-size: 11px; padding: 8px 16px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s; width: 100%; margin-top: 8px; }
+  input[type="text"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 10px; border-radius: 3px; outline: none; transition: border-color 0.2s; margin-bottom: 8px; }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+  button.add-rule-btn { background: var(--accent-dim); border: 1px solid rgba(200,240,78,0.3); color: var(--accent); font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-radius: 3px; cursor: pointer; width: 100%; transition: all 0.15s; }
+  button.add-rule-btn:hover { background: rgba(200,240,78,0.2); }
+  .rule-chip { display: flex; align-items: center; justify-content: space-between; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 6px 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+  .rule-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; transition: color 0.15s; }
+  .rule-chip button:hover { color: var(--red); }
+  .intake-section { margin-bottom: 32px; }
+  textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 12px 14px; border-radius: 4px; outline: none; resize: vertical; min-height: 100px; line-height: 1.6; transition: border-color 0.2s; margin-bottom: 10px; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  .btn-row { display: flex; gap: 10px; align-items: center; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 11px; padding: 8px 16px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+  button.secondary:hover { border-color: var(--text); color: var(--text); }
+  .spinner-row { display: none; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+  .spinner-row.active { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .decisions-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; }
+  .decision-card { display: flex; align-items: flex-start; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; animation: fadeIn 0.2s ease; }
+  .decision-card.allow { border-left: 3px solid var(--accent); }
+  .decision-card.block { border-left: 3px solid var(--red); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .decision-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+  .decision-body { flex: 1; }
+  .decision-from { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+  .decision-preview { font-size: 11px; color: var(--muted); margin-bottom: 6px; line-height: 1.4; }
+  .decision-reason { font-size: 11px; color: var(--muted); font-style: italic; }
+  .decision-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; }
+  .tag.allow { background: var(--accent-dim); color: var(--accent); }
+  .tag.block { background: var(--red-dim); color: var(--red); }
+  .override-btn { font-size: 10px; padding: 3px 8px; border-radius: 2px; border: 1px solid var(--border); color: var(--muted); background: transparent; cursor: pointer; font-family: var(--mono); transition: all 0.15s; white-space: nowrap; }
+  .override-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .confidence-text { font-size: 10px; color: var(--muted); }
+  .patterns-section { margin-top: 8px; }
+  .pattern-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .pattern-row:last-child { border-bottom: none; }
+  .pattern-sender { color: var(--text); }
+  .pattern-stats { color: var(--muted); font-size: 11px; display: flex; gap: 12px; }
+  .pattern-allow { color: var(--accent); }
+  .pattern-block { color: var(--red); }
+  .empty-state { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0; }
+  .error-msg { background: rgba(255,94,94,0.1); border: 1px solid rgba(255,94,94,0.3); color: var(--red); padding: 10px 14px; border-radius: 3px; font-size: 12px; margin-top: 8px; display: none; }
+  .error-msg.active { display: block; }
+  .blocked-banner { display: none; background: rgba(255,94,94,0.08); border: 1px solid rgba(255,94,94,0.3); border-radius: 4px; padding: 12px 16px; color: var(--red); font-size: 12px; margin-bottom: 24px; align-items: center; gap: 10px; }
+  .blocked-banner.active { display: flex; }
+  .schedule-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+  input[type="time"] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px; border-radius: 3px; outline: none; width: 90px; }
+  .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: 0.3s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: var(--muted); border-radius: 50%; transition: 0.3s; }
+  .toggle input:checked + .toggle-slider { background: var(--accent-dim); border: 1px solid var(--accent); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Attention <em>Guardian</em></h1>
+  <nav>
+    <a href="brief.html">Home</a>
+    <a href="index.html">Inbox</a>
+    <a href="research.html">Research</a>
+    <a href="commitments.html">Commitments</a>
+    <a href="guardian.html" class="active">Guardian</a>
+    <a href="social.html">Social</a>
+    <a href="learning.html">Learning</a>
+  </nav>
+</header>
+<div class="container">
+  <div class="blocked-banner" id="blockedBanner"><span>🔴</span><span id="blockedBannerText">Deep work session active.</span></div>
+  <div class="top-grid">
+    <div class="panel">
+      <div class="panel-title">Deep Work Session</div>
+      <div class="session-status"><div class="session-dot" id="sessionDot"></div><span class="session-label" id="sessionLabel">Not active</span></div>
+      <div class="timer-display" id="timerDisplay">00:00</div>
+      <div class="duration-btns">
+        <button class="dur-btn selected" onclick="selectDuration(25,this)">25m</button>
+        <button class="dur-btn" onclick="selectDuration(50,this)">50m</button>
+        <button class="dur-btn" onclick="selectDuration(90,this)">90m</button>
+        <button class="dur-btn" onclick="selectDuration(120,this)">2h</button>
+      </div>
+      <button class="primary" id="sessionBtn" onclick="toggleSession()">Start Session</button>
+      <button class="danger" id="endBtn" style="display:none" onclick="endSession()">End Session</button>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Auto-Block Schedule</div>
+      <div id="scheduleList"></div>
+      <button class="add-rule-btn" onclick="addScheduleSlot()" style="margin-top:8px">+ Add time block</button>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted)" id="scheduleStatus">Schedule: off</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Custom Rules</div>
+      <input type="text" id="ruleInput" placeholder="e.g. Always allow messages from Priya" />
+      <button class="add-rule-btn" onclick="addRule()">+ Add rule</button>
+      <div id="rulesList" style="margin-top:8px"><div style="font-size:11px;color:var(--muted)">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="intake-section">
+    <div class="section-label">Incoming notifications</div>
+    <textarea id="notifInput" placeholder="From | Preview&#10;&#10;Priya (CEO) | Board deck needs your sign-off&#10;LinkedIn | 8 new connection requests"></textarea>
+    <div class="btn-row">
+      <button class="secondary" onclick="loadSampleNotifs()">Load sample</button>
+      <button class="primary" style="width:auto;padding:8px 20px" id="evaluateBtn" onclick="evaluateNotifications()">Evaluate →</button>
+      <div class="spinner-row" id="evalSpinner"><div class="spinner"></div>Guardian thinking...</div>
+    </div>
+    <div class="error-msg" id="evalError"></div>
+  </div>
+
+  <div id="decisionsSection" style="display:none">
+    <div class="section-label" style="margin-bottom:12px">Decisions</div>
+    <div class="decisions-grid" id="decisionsGrid"></div>
+  </div>
+
+  <div class="patterns-section">
+    <div class="section-label" style="margin-bottom:12px">Learned patterns</div>
+    <div id="patternsList"><div class="empty-state">Loading patterns...</div></div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let sessionActive = false;
+let sessionDuration = 25;
+let timeLeft = 0;
+let timerInterval = null;
+let rules = [];
+let scheduleSlots = [];
+
+// Load rules and patterns from DB
+async function loadFromDB() {
+  try {
+    const [rulesRes, patternsRes] = await Promise.all([
+      fetch(`${API}/db/rules`),
+      fetch(`${API}/db/guardian/patterns`)
+    ]);
+    rules = await rulesRes.json();
+    const patterns = await patternsRes.json();
+    renderRules();
+    renderPatterns(patterns);
+  } catch (e) {
+    document.getElementById('rulesList').innerHTML = '<div style="font-size:11px;color:var(--muted)">Could not load from server.</div>';
+  }
+}
+
+function selectDuration(mins, btn) {
+  sessionDuration = mins;
+  document.querySelectorAll('.dur-btn').forEach(b => b.className = 'dur-btn');
+  btn.className = 'dur-btn selected';
+}
+
+function toggleSession() { if (!sessionActive) startSession(); }
+
+function startSession() {
+  sessionActive = true;
+  timeLeft = sessionDuration * 60;
+  document.getElementById('sessionDot').className = 'session-dot active';
+  document.getElementById('sessionLabel').className = 'session-label active';
+  document.getElementById('sessionLabel').textContent = 'Deep work active';
+  document.getElementById('sessionBtn').style.display = 'none';
+  document.getElementById('endBtn').style.display = 'block';
+  document.getElementById('timerDisplay').className = 'timer-display active';
+  document.getElementById('blockedBanner').className = 'blocked-banner active';
+  updateTimer();
+  timerInterval = setInterval(() => { timeLeft--; updateTimer(); if (timeLeft <= 0) endSession(); }, 1000);
+}
+
+function endSession() {
+  sessionActive = false;
+  clearInterval(timerInterval);
+  document.getElementById('sessionDot').className = 'session-dot';
+  document.getElementById('sessionLabel').className = 'session-label';
+  document.getElementById('sessionLabel').textContent = 'Not active';
+  document.getElementById('sessionBtn').style.display = 'block';
+  document.getElementById('endBtn').style.display = 'none';
+  document.getElementById('timerDisplay').className = 'timer-display';
+  document.getElementById('timerDisplay').textContent = '00:00';
+  document.getElementById('blockedBanner').className = 'blocked-banner';
+}
+
+function updateTimer() {
+  const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+  const s = (timeLeft % 60).toString().padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+}
+
+function addScheduleSlot() {
+  const id = Date.now();
+  scheduleSlots.push({ id, start: '09:00', end: '12:00', enabled: true });
+  renderSchedule();
+}
+
+function removeSlot(id) { scheduleSlots = scheduleSlots.filter(s => s.id !== id); renderSchedule(); }
+
+function renderSchedule() {
+  const list = document.getElementById('scheduleList');
+  if (scheduleSlots.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">No schedule set.</div>';
+  } else {
+    list.innerHTML = scheduleSlots.map(slot => `
+      <div class="schedule-row">
+        <input type="time" value="${slot.start}" onchange="slot_update(${slot.id},'start',this.value)" />
+        <span style="color:var(--muted)">–</span>
+        <input type="time" value="${slot.end}" onchange="slot_update(${slot.id},'end',this.value)" />
+        <label class="toggle"><input type="checkbox" ${slot.enabled?'checked':''} onchange="slot_update(${slot.id},'enabled',this.checked)"><span class="toggle-slider"></span></label>
+        <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px" onclick="removeSlot(${slot.id})">×</button>
+      </div>
+    `).join('');
+  }
+  checkSchedule();
+}
+
+function slot_update(id, field, value) {
+  const slot = scheduleSlots.find(s => s.id === id);
+  if (slot) slot[field] = value;
+  checkSchedule();
+}
+
+function checkSchedule() {
+  const now = new Date();
+  const currentTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const inSchedule = scheduleSlots.some(slot => slot.enabled && currentTime >= slot.start && currentTime <= slot.end);
+  const status = document.getElementById('scheduleStatus');
+  status.textContent = inSchedule ? '🔴 Schedule: blocked now' : scheduleSlots.length > 0 ? '🟢 Not in block window' : 'Schedule: off';
+  status.style.color = inSchedule ? 'var(--red)' : 'var(--muted)';
+}
+
+async function addRule() {
+  const val = document.getElementById('ruleInput').value.trim();
+  if (!val) return;
+  await fetch(`${API}/db/rules`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rule: val })
+  });
+  rules.push(val);
+  document.getElementById('ruleInput').value = '';
+  renderRules();
+}
+
+async function removeRule(rule) {
+  await fetch(`${API}/db/rules/${encodeURIComponent(rule)}`, { method: 'DELETE' });
+  rules = rules.filter(r => r !== rule);
+  renderRules();
+}
+
+function renderRules() {
+  const list = document.getElementById('rulesList');
+  if (rules.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--muted)">No rules yet.</div>';
+  } else {
+    list.innerHTML = rules.map(r => `
+      <div class="rule-chip"><span>${esc(r)}</span><button onclick="removeRule('${esc(r)}')">×</button></div>
+    `).join('');
+  }
+}
+
+function loadSampleNotifs() {
+  document.getElementById('notifInput').value =
+`Priya (CEO) | Board deck needs your sign-off today
+LinkedIn | You have 12 new connection requests this week
+Rahul (engineering) | Blocked on deployment, need approval ASAP
+Substack | This week's top productivity reads
+Ananya (client) | Quick question about contract renewal
+GitHub Actions | Build #145 passed all checks`;
+}
+
+async function evaluateNotifications() {
+  const raw = document.getElementById('notifInput').value.trim();
+  if (!raw) return;
+  const lines = raw.split('\n').filter(l => l.trim());
+  const notifications = lines.map((line, i) => {
+    const parts = line.split('|').map(p => p.trim());
+    return { id: `notif_${i+1}`, from: parts[0]||'Unknown', preview: parts[1]||parts[0], channel: 'unknown' };
+  });
+
+  document.getElementById('evalError').className = 'error-msg';
+  document.getElementById('evalSpinner').className = 'spinner-row active';
+  document.getElementById('evaluateBtn').disabled = true;
+
+  try {
+    const r = await fetch(`${API}/guardian`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notifications, context: { session_active: sessionActive, rules, history: [] } })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const decisions = (data.decisions || []).map(d => {
+      const orig = notifications.find(n => n.id === d.id) || {};
+      return { ...d, from: orig.from, preview: orig.preview };
+    });
+    renderDecisions(decisions, notifications);
+    // Reload patterns from DB (guardian route auto-saves)
+    const patternsRes = await fetch(`${API}/db/guardian/patterns`);
+    renderPatterns(await patternsRes.json());
+  } catch (err) {
+    document.getElementById('evalError').textContent = 'Error: ' + err.message;
+    document.getElementById('evalError').className = 'error-msg active';
+  } finally {
+    document.getElementById('evalSpinner').className = 'spinner-row';
+    document.getElementById('evaluateBtn').disabled = false;
+  }
+}
+
+function overrideDecision(id, newDecision) {
+  const card = document.getElementById(`dcard_${id}`);
+  if (!card) return;
+  card.className = `decision-card ${newDecision}`;
+  card.querySelector('.tag').className = `tag ${newDecision}`;
+  card.querySelector('.tag').textContent = newDecision === 'allow' ? '✓ allowed' : '✗ blocked';
+}
+
+function renderDecisions(decisions, notifications) {
+  document.getElementById('decisionsSection').style.display = 'block';
+  const grid = document.getElementById('decisionsGrid');
+  grid.innerHTML = decisions.map(d => `
+    <div class="decision-card ${d.decision}" id="dcard_${d.id}">
+      <div class="decision-icon">${d.decision === 'allow' ? '✓' : '✗'}</div>
+      <div class="decision-body">
+        <div class="decision-from">${esc(d.from||'')}</div>
+        <div class="decision-preview">${esc(d.preview||'')}</div>
+        <div class="decision-reason">${esc(d.reason||'')}</div>
+      </div>
+      <div class="decision-right">
+        <span class="tag ${d.decision}">${d.decision === 'allow' ? '✓ allowed' : '✗ blocked'}</span>
+        <span class="confidence-text">${d.confidence||'?'}% sure</span>
+        <button class="override-btn" onclick="overrideDecision('${d.id}','${d.decision==='allow'?'block':'allow'}')">Override → ${d.decision==='allow'?'block':'allow'}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPatterns(patterns) {
+  const list = document.getElementById('patternsList');
+  if (!patterns || patterns.length === 0) {
+    list.innerHTML = '<div class="empty-state">No patterns yet.</div>';
+    return;
+  }
+  list.innerHTML = patterns.map(p => `
+    <div class="pattern-row">
+      <span class="pattern-sender">${esc(p.sender)}</span>
+      <span class="pattern-stats">
+        <span class="pattern-allow">✓ ${p.allow_count} allowed</span>
+        <span class="pattern-block">✗ ${p.block_count} blocked</span>
+      </span>
+    </div>
+  `).join('');
+}
+
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('ruleInput').addEventListener('keydown', e => { if (e.key === 'Enter') addRule(); });
+renderSchedule();
+loadFromDB();
+setInterval(checkSchedule, 60000);
+</script>
+</body>
+</html>

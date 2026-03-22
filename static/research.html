@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Condenser — Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2028;
+    --border: #2a2d38;
+    --accent: #c8f04e;
+    --accent-dim: rgba(200, 240, 78, 0.12);
+    --text: #e8eaf0;
+    --muted: #6b7080;
+    --red: #ff5e5e;
+    --amber: #f5a623;
+    --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  header {
+    max-width: 780px;
+    margin: 0 auto 48px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  header h1 em { font-style: italic; color: var(--accent); }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--accent); }
+  nav a.active { color: var(--accent); }
+
+  .container { max-width: 780px; margin: 0 auto; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* Search box */
+  .search-wrap {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 12px 16px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+
+  button.primary {
+    background: var(--accent);
+    border: none;
+    color: #0a0b0d;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12px;
+    padding: 12px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  button.primary:hover { background: #d6ff52; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .examples {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+
+  .example-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .example-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Loading */
+  .loading {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    padding: 40px 0;
+  }
+  .loading.active { display: flex; }
+
+  .loading-steps { display: flex; flex-direction: column; gap: 8px; }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+  .step.active { color: var(--text); }
+  .step.done { color: var(--accent); }
+
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .step.active .step-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .step.done .step-dot { background: var(--accent); }
+
+  /* Results */
+  .results { display: none; }
+  .results.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* Verdict card */
+  .verdict-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .verdict-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .verdict-text {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .reasoning {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  /* Confidence bar */
+  .confidence-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .confidence-label { font-size: 11px; color: var(--muted); }
+
+  .confidence-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .confidence-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .confidence-score {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* Pros / Cons */
+  .pros-cons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .pros-box, .cons-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  .pros-box { border-top: 2px solid var(--accent); }
+  .cons-box { border-top: 2px solid var(--red); }
+
+  .box-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .pros-box .box-label { color: var(--accent); }
+  .cons-box .box-label { color: var(--red); }
+
+  .pro-item, .con-item {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .pro-item::before { content: "+"; color: var(--accent); flex-shrink: 0; }
+  .con-item::before { content: "−"; color: var(--red); flex-shrink: 0; }
+
+  /* Sources */
+  .sources-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  .source-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .source-item:last-child { border-bottom: none; }
+
+  .source-num {
+    color: var(--muted);
+    flex-shrink: 0;
+    width: 16px;
+  }
+
+  .source-item a {
+    color: var(--blue);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .source-item a:hover { color: var(--accent); }
+
+  .new-search-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: all 0.15s;
+  }
+  .new-search-btn:hover { border-color: var(--text); color: var(--text); }
+
+  .error-msg {
+    background: rgba(255,94,94,0.1);
+    border: 1px solid rgba(255,94,94,0.3);
+    color: var(--red);
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-size: 12px;
+    margin-top: 16px;
+    display: none;
+  }
+  .error-msg.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Research <em>Condenser</em></h1>
+  <nav>
+    <a href="index.html">Inbox Triage</a>
+    <a href="research.html" class="active">Research</a>
+    <a href="commitments.html">Commitments</a>
+    <a href="guardian.html">Guardian</a>
+    <a href="social.html">Social</a>
+    <a href="learning.html">Learning</a>
+    <a href="brief.html">Brief</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <div id="searchSection">
+    <div class="section-label">Ask anything</div>
+    <div class="search-wrap">
+      <input type="text" id="questionInput" placeholder="Should I buy the M4 MacBook Pro? Is React still worth learning in 2025?" />
+      <button class="primary" id="searchBtn" onclick="runResearch()">Research →</button>
+    </div>
+    <div class="examples">
+      <span class="example-chip" onclick="setQuestion(this)">Should I buy the M4 MacBook Pro?</span>
+      <span class="example-chip" onclick="setQuestion(this)">Is Rust worth learning in 2025?</span>
+      <span class="example-chip" onclick="setQuestion(this)">Best budget mechanical keyboard under $100?</span>
+      <span class="example-chip" onclick="setQuestion(this)">Is it a good time to invest in index funds?</span>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="section-label">Working on it</div>
+    <div class="loading-steps">
+      <div class="step" id="step1"><div class="step-dot"></div>Searching the web via Tavily...</div>
+      <div class="step" id="step2"><div class="step-dot"></div>Reading results...</div>
+      <div class="step" id="step3"><div class="step-dot"></div>Synthesizing with llama3...</div>
+      <div class="step" id="step4"><div class="step-dot"></div>Building verdict...</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="verdict-card">
+      <div class="verdict-label">Verdict</div>
+      <div class="verdict-text" id="verdictText"></div>
+      <div class="reasoning" id="reasoningText"></div>
+      <div class="confidence-row">
+        <span class="confidence-label">Confidence</span>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-bar" id="confidenceBar" style="width:0%"></div>
+        </div>
+        <span class="confidence-score" id="confidenceScore"></span>
+      </div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros-box">
+        <div class="box-label">Pros</div>
+        <div id="prosList"></div>
+      </div>
+      <div class="cons-box">
+        <div class="box-label">Cons</div>
+        <div id="consList"></div>
+      </div>
+    </div>
+
+    <div class="sources-box">
+      <div class="section-label" style="margin-bottom:12px">Sources</div>
+      <div id="sourcesList"></div>
+    </div>
+
+    <button class="new-search-btn" onclick="reset()">← New research</button>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+function setQuestion(el) {
+  document.getElementById('questionInput').value = el.textContent;
+}
+
+let stepTimer = null;
+
+function animateSteps() {
+  const steps = ['step1', 'step2', 'step3', 'step4'];
+  let i = 0;
+  steps.forEach(s => {
+    document.getElementById(s).className = 'step';
+  });
+  document.getElementById(steps[0]).className = 'step active';
+
+  stepTimer = setInterval(() => {
+    if (i < steps.length - 1) {
+      document.getElementById(steps[i]).className = 'step done';
+      i++;
+      document.getElementById(steps[i]).className = 'step active';
+    }
+  }, 2500);
+}
+
+function stopSteps() {
+  clearInterval(stepTimer);
+  ['step1','step2','step3','step4'].forEach(s => {
+    document.getElementById(s).className = 'step done';
+  });
+}
+
+async function runResearch() {
+  const question = document.getElementById('questionInput').value.trim();
+  if (!question) return;
+
+  document.getElementById('errorMsg').className = 'error-msg';
+  document.getElementById('results').className = 'results';
+  document.getElementById('loading').className = 'loading active';
+  document.getElementById('searchBtn').disabled = true;
+  animateSteps();
+
+  try {
+    const r = await fetch(`${API}/research`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    const data = await r.json();
+
+    if (data.error) throw new Error(data.error);
+
+    stopSteps();
+    renderResults(data);
+  } catch (err) {
+    stopSteps();
+    document.getElementById('errorMsg').textContent = 'Error: ' + err.message;
+    document.getElementById('errorMsg').className = 'error-msg active';
+  } finally {
+    document.getElementById('loading').className = 'loading';
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('verdictText').textContent = data.verdict || 'No verdict generated';
+  document.getElementById('reasoningText').textContent = data.reasoning || '';
+
+  const confidence = data.confidence || 0;
+  document.getElementById('confidenceScore').textContent = confidence + '%';
+  setTimeout(() => {
+    document.getElementById('confidenceBar').style.width = confidence + '%';
+  }, 100);
+
+  const pros = data.pros || [];
+  document.getElementById('prosList').innerHTML = pros.map(p =>
+    `<div class="pro-item">${escape(p)}</div>`
+  ).join('');
+
+  const cons = data.cons || [];
+  document.getElementById('consList').innerHTML = cons.map(c =>
+    `<div class="con-item">${escape(c)}</div>`
+  ).join('');
+
+  const sources = data.sources || [];
+  document.getElementById('sourcesList').innerHTML = sources.filter(Boolean).map((s, i) =>
+    `<div class="source-item"><span class="source-num">[${i+1}]</span><a href="${s}" target="_blank">${s}</a></div>`
+  ).join('');
+
+  document.getElementById('results').className = 'results active';
+}
+
+function escape(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function reset() {
+  document.getElementById('results').className = 'results';
+  document.getElementById('errorMsg').className = 'error-msg';
+  document.getElementById('questionInput').value = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('questionInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runResearch();
+});
+</script>
+</body>
+</html>

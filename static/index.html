@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbox Triage</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16181c;
+    --surface2: #1e2028;
+    --border: #2a2d38;
+    --accent: #c8f04e;
+    --accent-dim: rgba(200, 240, 78, 0.12);
+    --text: #e8eaf0;
+    --muted: #6b7080;
+    --red: #ff5e5e;
+    --amber: #f5a623;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  header {
+    max-width: 900px;
+    margin: 0 auto 48px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  header h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    transition: background 0.3s;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.err { background: var(--red); }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  /* Message input area */
+  .input-section { margin-bottom: 32px; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .messages-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+  .message-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    position: relative;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .message-card-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  input, textarea, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+  select option { background: var(--surface2); }
+
+  .remove-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 16px;
+    cursor: pointer;
+    width: 28px; height: 28px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .remove-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .btn-row { display: flex; gap: 10px; align-items: center; }
+
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  button.secondary:hover { border-color: var(--text); color: var(--text); }
+
+  button.primary {
+    background: var(--accent);
+    border: none;
+    color: #0a0b0d;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12px;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  button.primary:hover { background: #d6ff52; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .hint { color: var(--muted); font-size: 11px; margin-left: auto; }
+
+  /* Loading */
+  .loading {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 24px 0;
+  }
+  .loading.active { display: flex; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  .results { display: none; }
+  .results.active { display: block; animation: fadeIn 0.3s ease; }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* Priority cards */
+  .priority-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+
+  .priority-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+  .priority-card.medium { border-left-color: var(--amber); }
+
+  .priority-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    gap: 12px;
+  }
+
+  .msg-title {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .tag {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .tag.high { background: rgba(200,240,78,0.15); color: var(--accent); }
+  .tag.medium { background: rgba(245,166,35,0.15); color: var(--amber); }
+  .tag.auto-archive { background: rgba(107,112,128,0.15); color: var(--muted); }
+  .tag.read-later { background: rgba(107,112,128,0.15); color: var(--muted); }
+  .tag.delegate { background: rgba(255,94,94,0.15); color: var(--red); }
+
+  .reason { color: var(--muted); font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
+  .action-text { color: var(--accent); font-size: 11px; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+  .draft-area { margin-top: 12px; }
+
+  .draft-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    margin-top: 8px;
+    min-height: 60px;
+  }
+
+  .draft-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+
+  .tone-select { width: auto; font-size: 11px; padding: 5px 8px; }
+
+  button.draft-btn {
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,240,78,0.3);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button.draft-btn:hover { background: rgba(200,240,78,0.2); }
+  button.draft-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Rest table */
+  .rest-table { width: 100%; border-collapse: collapse; }
+  .rest-table th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rest-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .rest-table td:first-child { color: var(--text); }
+  .rest-table tr:last-child td { border-bottom: none; }
+
+  /* Copy button */
+  .copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    transition: color 0.15s;
+  }
+  .copy-btn:hover { color: var(--accent); }
+
+  .error-msg {
+    background: rgba(255,94,94,0.1);
+    border: 1px solid rgba(255,94,94,0.3);
+    color: var(--red);
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-size: 12px;
+    margin-top: 16px;
+    display: none;
+  }
+  .error-msg.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="status-dot" id="statusDot"></div>
+  <h1>Inbox <em>Triage</em></h1>
+  <span style="color: var(--muted); font-size: 11px; margin-left: auto;" id="statusText">checking ollama...</span>
+  <nav style="margin-left:auto;display:flex;gap:16px;font-size:11px;letter-spacing:1px;">
+  <a href="index.html" style="color:var(--accent);text-decoration:none;text-transform:uppercase;">Inbox Triage</a>
+  <a href="research.html" style="color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color 0.15s;">Research</a>
+  <a href="commitments.html">Commitments</a>
+  <a href="guardian.html">Guardian</a>
+  <a href="social.html">Social</a>
+  <a href="learning.html">Learning</a>
+  <a href="brief.html">Brief</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- Input Section -->
+  <div class="input-section">
+    <div class="section-label">Your Messages</div>
+    <div class="messages-list" id="messagesList"></div>
+    <div class="btn-row">
+      <button class="secondary" onclick="addMessage()">+ Add message</button>
+      <button class="secondary" onclick="loadSample()">Load sample</button>
+      <button class="primary" id="triageBtn" onclick="runTriage()" disabled>Run Triage →</button>
+      <span class="hint" id="countHint"></span>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>llama3 is thinking...</span>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="section-label" style="margin:0">Needs your attention today</div>
+      <button class="secondary" onclick="reset()" style="font-size:11px">← Start over</button>
+    </div>
+
+    <div class="priority-grid" id="priorityGrid"></div>
+
+    <hr class="divider">
+
+    <div class="section-label" style="margin-bottom:12px">Everything else</div>
+    <table class="rest-table">
+      <thead>
+        <tr>
+          <th>Message</th>
+          <th>Classification</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody id="restBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let messages = [];
+let msgIdCounter = 0;
+
+// Check Ollama health
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const data = await r.json();
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    if (data.ollama === 'connected' && data.llama3) {
+      dot.className = 'status-dot ok';
+      txt.textContent = 'llama3 ready';
+    } else if (data.ollama === 'connected') {
+      dot.className = 'status-dot err';
+      txt.textContent = `ollama up but llama3 not found (run: ollama pull llama3)`;
+    } else {
+      dot.className = 'status-dot err';
+      txt.textContent = 'ollama not reachable — start it with: ollama serve';
+    }
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'backend not running — see setup instructions';
+  }
+}
+
+function addMessage(data = {}) {
+  const id = `msg_${++msgIdCounter}`;
+  messages.push({ id });
+  renderMessages();
+  if (data.from) fillMessage(id, data);
+}
+
+function fillMessage(id, data) {
+  document.getElementById(`from_${id}`).value = data.from || '';
+  document.getElementById(`subject_${id}`).value = data.subject || '';
+  document.getElementById(`channel_${id}`).value = data.channel || 'email';
+  document.getElementById(`body_${id}`).value = data.body || '';
+}
+
+function removeMessage(id) {
+  messages = messages.filter(m => m.id !== id);
+  renderMessages();
+}
+
+function renderMessages() {
+  const list = document.getElementById('messagesList');
+  list.innerHTML = messages.map(m => `
+    <div class="message-card" id="card_${m.id}">
+      <div class="message-card-header">
+        <input id="from_${m.id}" placeholder="From (name / email)" />
+        <input id="subject_${m.id}" placeholder="Subject / thread title" />
+        <button class="remove-btn" onclick="removeMessage('${m.id}')">×</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="channel_${m.id}" style="width:120px">
+          <option value="email">Email</option>
+          <option value="slack">Slack</option>
+          <option value="discord">Discord</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <textarea id="body_${m.id}" placeholder="Message body..."></textarea>
+    </div>
+  `).join('');
+
+  const count = messages.length;
+  document.getElementById('triageBtn').disabled = count === 0;
+  document.getElementById('countHint').textContent = count > 0 ? `${count} message${count > 1 ? 's' : ''}` : '';
+}
+
+function collectMessages() {
+  return messages.map(m => ({
+    id: m.id,
+    from: document.getElementById(`from_${m.id}`).value || 'Unknown',
+    subject: document.getElementById(`subject_${m.id}`).value || '(no subject)',
+    channel: document.getElementById(`channel_${m.id}`).value,
+    body: document.getElementById(`body_${m.id}`).value || ''
+  }));
+}
+
+function loadSample() {
+  messages = [];
+  msgIdCounter = 0;
+  renderMessages();
+
+  const samples = [
+    { from: 'Priya Menon (CEO)', subject: 'Board deck — need your input by 5pm', channel: 'email', body: 'Hey, the board meets tomorrow morning. Can you review the financials section and confirm the Q3 numbers are accurate? Need this by EOD.' },
+    { from: 'Substack Newsletter', subject: 'The 10 best productivity apps of 2025', channel: 'email', body: 'Sponsored: Check out these amazing tools that will 10x your output...' },
+    { from: 'Rahul (engineering)', subject: 'Re: API rate limits', channel: 'slack', body: "Blocked on the deployment. Can't proceed until you approve the new rate limit config. Waiting on you." },
+    { from: 'LinkedIn', subject: 'You have 14 new connection requests', channel: 'email', body: 'People you may know: Amit Sharma, VP Sales at TechCorp...' },
+    { from: 'Ananya (client)', subject: 'Contract renewal question', channel: 'email', body: "Hi, our contract comes up next month. We're happy with the service but wanted to discuss pricing before renewing. Can we schedule a 20 min call?" },
+    { from: 'GitHub Actions', subject: '[PASS] Build #142 succeeded', channel: 'email', body: 'Your build on branch main passed all checks. No action needed.' }
+  ];
+
+  samples.forEach(s => addMessage(s));
+}
+
+async function runTriage() {
+  const msgs = collectMessages();
+  if (msgs.length === 0) return;
+
+  document.getElementById('errorMsg').className = 'error-msg';
+  document.getElementById('loading').className = 'loading active';
+  document.getElementById('results').className = 'results';
+  document.getElementById('triageBtn').disabled = true;
+
+  try {
+    const r = await fetch(`${API}/triage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: msgs })
+    });
+    const data = await r.json();
+
+    if (data.error) throw new Error(data.error + ' Raw: ' + (data.raw || ''));
+
+    renderResults(data, msgs);
+  } catch (err) {
+    document.getElementById('errorMsg').textContent = 'Error: ' + err.message;
+    document.getElementById('errorMsg').className = 'error-msg active';
+  } finally {
+    document.getElementById('loading').className = 'loading';
+    document.getElementById('triageBtn').disabled = false;
+  }
+}
+
+function getMsgById(id, msgs) {
+  return msgs.find(m => m.id === id) || {};
+}
+
+function renderResults(data, msgs) {
+  // Priority cards
+  const grid = document.getElementById('priorityGrid');
+  const priority = data.priority || [];
+
+  grid.innerHTML = priority.map(item => {
+    const msg = getMsgById(item.id, msgs);
+    return `
+      <div class="priority-card ${item.urgency === 'high' ? '' : 'medium'}">
+        <div class="priority-card-top">
+          <div>
+            <div class="msg-title">${escape(msg.subject || item.id)}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:3px">${escape(msg.from || '')} · ${msg.channel || ''}</div>
+          </div>
+          <span class="tag ${item.urgency}">${item.urgency}</span>
+        </div>
+        <div class="reason">${escape(item.reason)}</div>
+        <div class="action-text">→ ${escape(item.suggested_action)}</div>
+        <div class="draft-area">
+          <div style="display:flex;align-items:center;gap:8px">
+            <select class="tone-select" id="tone_${item.id}">
+              <option value="professional">Professional</option>
+              <option value="concise">Concise</option>
+              <option value="warm">Warm</option>
+              <option value="firm">Firm</option>
+            </select>
+            <button class="draft-btn" onclick="getDraft('${item.id}', ${JSON.stringify(msg).replace(/"/g, '&quot;')})">Draft reply</button>
+            <span class="hint" id="drafting_${item.id}" style="display:none">drafting...</span>
+          </div>
+          <div class="draft-box" id="draft_${item.id}" style="display:none"></div>
+          <div class="draft-actions" id="draftActions_${item.id}" style="display:none">
+            <button class="copy-btn" onclick="copyDraft('${item.id}')">copy</button>
+            <span style="color:var(--border)">|</span>
+            <span style="color:var(--muted);font-size:11px">Edit above before sending</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Rest table
+  const tbody = document.getElementById('restBody');
+  const rest = data.rest || [];
+  tbody.innerHTML = rest.map(item => {
+    const msg = getMsgById(item.id, msgs);
+    return `
+      <tr>
+        <td>
+          <div style="font-size:12px;color:var(--text)">${escape(msg.subject || item.id)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${escape(msg.from || '')}</div>
+        </td>
+        <td><span class="tag ${item.classification}">${item.classification}</span></td>
+        <td>${escape(item.reason || '')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('results').className = 'results active';
+}
+
+async function getDraft(id, msg) {
+  const tone = document.getElementById(`tone_${id}`).value;
+  const draftBox = document.getElementById(`draft_${id}`);
+  const hint = document.getElementById(`drafting_${id}`);
+  const actions = document.getElementById(`draftActions_${id}`);
+
+  hint.style.display = 'inline';
+  draftBox.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, tone })
+    });
+    const data = await r.json();
+    draftBox.textContent = data.draft;
+    draftBox.contentEditable = 'true';
+    draftBox.style.display = 'block';
+    actions.style.display = 'flex';
+  } catch (err) {
+    draftBox.textContent = 'Error generating draft: ' + err.message;
+    draftBox.style.display = 'block';
+  } finally {
+    hint.style.display = 'none';
+  }
+}
+
+function copyDraft(id) {
+  const box = document.getElementById(`draft_${id}`);
+  navigator.clipboard.writeText(box.textContent);
+  const btn = box.parentElement.querySelector('.copy-btn');
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+
+function escape(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function reset() {
+  document.getElementById('results').className = 'results';
+  document.getElementById('errorMsg').className = 'error-msg';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Init
+checkHealth();
+loadSample();
+</script>
+</body>
+</html>

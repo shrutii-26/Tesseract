@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Social Curator — Tesseract</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #16181c; --surface2: #1e2028;
+    --border: #2a2d38; --accent: #c8f04e; --accent-dim: rgba(200,240,78,0.12);
+    --text: #e8eaf0; --muted: #6b7080; --red: #ff5e5e; --amber: #f5a623; --blue: #7eb8f7;
+    --mono: 'DM Mono', monospace; --serif: 'Fraunces', Georgia, serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; padding: 40px 24px; }
+  header { max-width: 940px; margin: 0 auto 48px; display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  header h1 { font-family: var(--serif); font-weight: 300; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 em { font-style: italic; color: var(--accent); }
+  nav { margin-left: auto; display: flex; gap: 16px; font-size: 11px; letter-spacing: 1px; }
+  nav a { color: var(--muted); text-decoration: none; text-transform: uppercase; transition: color 0.15s; }
+  nav a:hover, nav a.active { color: var(--accent); }
+  .container { max-width: 940px; margin: 0 auto; }
+  .section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .interest-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; }
+  .interest-chip { background: var(--accent-dim); border: 1px solid rgba(200,240,78,0.3); color: var(--accent); font-size: 11px; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; }
+  .interest-chip button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
+  input[type="text"] { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 12px; border-radius: 3px; outline: none; transition: border-color 0.2s; width: 100%; }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+  .post-input-section { margin-bottom: 28px; }
+  .post-input-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .post-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .post-card-header { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .post-card-header input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 10px; border-radius: 3px; outline: none; }
+  .post-card-header input:focus { border-color: var(--accent); }
+  select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 10px; border-radius: 3px; outline: none; cursor: pointer; }
+  textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 9px 12px; border-radius: 3px; outline: none; resize: vertical; min-height: 60px; line-height: 1.6; transition: border-color 0.2s; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  .remove-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 16px; width: 28px; height: 28px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .remove-btn:hover { border-color: var(--red); color: var(--red); }
+  .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button.primary { background: var(--accent); border: none; color: #0a0b0d; font-family: var(--mono); font-weight: 500; font-size: 11px; padding: 8px 20px; border-radius: 3px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: background 0.15s; }
+  button.primary:hover { background: #d6ff52; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 11px; padding: 8px 14px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+  button.secondary:hover { border-color: var(--text); color: var(--text); }
+  .spinner-row { display: none; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+  .spinner-row.active { display: flex; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .results { display: none; }
+  .results.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; animation: fadeIn 0.3s ease; }
+  .picks-list { display: flex; flex-direction: column; gap: 12px; }
+  .pick-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; padding: 16px; }
+  .pick-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+  .pick-author { font-family: var(--serif); font-size: 15px; font-weight: 600; color: var(--text); }
+  .pick-platform { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 2px 7px; border: 1px solid var(--border); border-radius: 2px; }
+  .pick-content { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+  .pick-why { font-size: 11px; color: var(--accent); margin-bottom: 10px; }
+  .draft-section { background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; }
+  .draft-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .draft-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+  .pick-action { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .action-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; }
+  .action-tag.reply { background: var(--accent-dim); color: var(--accent); }
+  .action-tag.dm { background: rgba(126,184,247,0.12); color: var(--blue); }
+  .action-tag.share { background: rgba(245,166,35,0.12); color: var(--amber); }
+  .copy-btn { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 2px 6px; transition: color 0.15s; }
+  .copy-btn:hover { color: var(--accent); }
+  .scored-list { display: flex; flex-direction: column; gap: 8px; }
+  .scored-item { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .score-badge { font-size: 16px; font-family: var(--serif); font-weight: 600; min-width: 28px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+  .score-badge.high { color: var(--accent); }
+  .score-badge.medium { color: var(--amber); }
+  .score-badge.low { color: var(--muted); }
+  .scored-body { flex: 1; }
+  .scored-author { font-size: 12px; color: var(--text); margin-bottom: 3px; }
+  .scored-content { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  .scored-reason { font-size: 11px; color: var(--muted); font-style: italic; }
+  .signal-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
+  .signal-tag.high { background: var(--accent-dim); color: var(--accent); }
+  .signal-tag.medium { background: rgba(245,166,35,0.12); color: var(--amber); }
+  .signal-tag.low { background: rgba(107,112,128,0.12); color: var(--muted); }
+  .error-msg { background: rgba(255,94,94,0.1); border: 1px solid rgba(255,94,94,0.3); color: var(--red); padding: 10px 14px; border-radius: 3px; font-size: 12px; margin-top: 8px; display: none; }
+  .error-msg.active { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Social <em>Curator</em></h1>
+  <nav>
+    <a href="brief.html">Home</a>
+    <a href="index.html">Inbox</a>
+    <a href="research.html">Research</a>
+    <a href="commitments.html">Commitments</a>
+    <a href="guardian.html">Guardian</a>
+    <a href="social.html" class="active">Social</a>
+    <a href="learning.html">Learning</a>
+  </nav>
+</header>
+<div class="container">
+  <div style="margin-bottom:24px">
+    <div class="section-label">Your interests</div>
+    <div class="interest-chips" id="interestChips"></div>
+    <div style="display:flex;gap:8px;max-width:400px">
+      <input type="text" id="interestInput" placeholder="Add an interest (e.g. AI, startups, design)" />
+      <button class="secondary" onclick="addInterest()" style="white-space:nowrap">Add</button>
+    </div>
+  </div>
+
+  <div class="post-input-section">
+    <div class="section-label">Posts to evaluate</div>
+    <div class="post-input-grid" id="postsList"></div>
+    <div class="btn-row">
+      <button class="secondary" onclick="addPost()">+ Add post</button>
+      <button class="secondary" onclick="loadSample()">Load sample</button>
+      <button class="primary" id="curateBtn" onclick="runCuration()" disabled>Curate →</button>
+      <div class="spinner-row" id="curateSpinner"><div class="spinner"></div>Scoring posts...</div>
+    </div>
+    <div class="error-msg" id="curateError"></div>
+  </div>
+
+  <div class="results" id="results">
+    <div>
+      <div class="section-label" style="margin-bottom:14px">Top picks — engage with these</div>
+      <div class="picks-list" id="picksList"></div>
+      <button class="secondary" style="margin-top:20px" onclick="reset()">← Start over</button>
+    </div>
+    <div>
+      <div class="section-label" style="margin-bottom:14px">All posts scored</div>
+      <div class="scored-list" id="scoredList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let interests = [];
+let posts = [];
+let postIdCounter = 0;
+
+async function loadInterestsFromDB() {
+  try {
+    const r = await fetch(`${API}/db/interests`);
+    interests = await r.json();
+    if (interests.length === 0) {
+      // Seed defaults
+      for (const i of ['AI', 'startups', 'product']) {
+        await fetch(`${API}/db/interests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interest: i }) });
+        interests.push(i);
+      }
+    }
+    renderInterests();
+  } catch (e) {
+    interests = ['AI', 'startups', 'product'];
+    renderInterests();
+  }
+}
+
+async function addInterest() {
+  const val = document.getElementById('interestInput').value.trim();
+  if (!val || interests.includes(val)) return;
+  await fetch(`${API}/db/interests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interest: val }) });
+  interests.push(val);
+  document.getElementById('interestInput').value = '';
+  renderInterests();
+}
+
+async function removeInterest(interest) {
+  await fetch(`${API}/db/interests/${encodeURIComponent(interest)}`, { method: 'DELETE' });
+  interests = interests.filter(i => i !== interest);
+  renderInterests();
+}
+
+function renderInterests() {
+  document.getElementById('interestChips').innerHTML = interests.map(t => `
+    <div class="interest-chip">${esc(t)}<button onclick="removeInterest('${esc(t)}')">×</button></div>
+  `).join('');
+}
+
+function addPost(data = {}) {
+  const id = `post_${++postIdCounter}`;
+  posts.push({ id, ...data });
+  renderPosts();
+  if (data.author) fillPost(id, data);
+}
+
+function fillPost(id, data) {
+  document.getElementById(`author_${id}`).value = data.author || '';
+  document.getElementById(`platform_${id}`).value = data.platform || 'twitter';
+  document.getElementById(`days_${id}`).value = data.days_since_engaged || 0;
+  document.getElementById(`content_${id}`).value = data.content || '';
+}
+
+function removePost(id) { posts = posts.filter(p => p.id !== id); renderPosts(); }
+
+function renderPosts() {
+  const list = document.getElementById('postsList');
+  list.innerHTML = posts.map(p => `
+    <div class="post-card">
+      <div class="post-card-header">
+        <input id="author_${p.id}" placeholder="Author name" />
+        <select id="platform_${p.id}"><option value="twitter">Twitter/X</option><option value="linkedin">LinkedIn</option></select>
+        <input id="days_${p.id}" type="number" min="0" placeholder="Days" style="width:60px" title="Days since last engaged" />
+        <button class="remove-btn" onclick="removePost('${p.id}')">×</button>
+      </div>
+      <textarea id="content_${p.id}" placeholder="Post content..."></textarea>
+    </div>
+  `).join('');
+  document.getElementById('curateBtn').disabled = posts.length === 0;
+}
+
+function collectPosts() {
+  return posts.map(p => ({
+    id: p.id,
+    author: document.getElementById(`author_${p.id}`).value || 'Unknown',
+    platform: document.getElementById(`platform_${p.id}`).value,
+    days_since_engaged: parseInt(document.getElementById(`days_${p.id}`).value) || 0,
+    content: document.getElementById(`content_${p.id}`).value || ''
+  }));
+}
+
+function loadSample() {
+  posts = []; postIdCounter = 0; renderPosts();
+  const samples = [
+    { author: 'Andrej Karpathy', platform: 'twitter', days_since_engaged: 5, content: "The thing nobody talks about with LLMs: the real bottleneck isn't intelligence, it's memory architecture." },
+    { author: 'Growth Hacker Pro', platform: 'twitter', days_since_engaged: 0, content: '🔥 10 PRODUCTIVITY HACKS that will CHANGE YOUR LIFE!! Like and retweet!' },
+    { author: 'Rahul Ligma', platform: 'linkedin', days_since_engaged: 45, content: "Just shipped our Series A deck after 6 months of rejections. Stopped pitching the product, started pitching the problem." },
+    { author: 'TechCrunch', platform: 'twitter', days_since_engaged: 1, content: 'OpenAI raises another $10B at $150B valuation.' },
+    { author: 'Sarah Chen', platform: 'linkedin', days_since_engaged: 90, content: 'After 3 years in AI: distribution beats product quality 9 times out of 10.' },
+    { author: 'SaaS Weekly', platform: 'twitter', days_since_engaged: 0, content: 'Sponsored: Try the #1 project management tool. Use code TWITTER20 for 20% off.' }
+  ];
+  samples.forEach(s => { const id = `post_${++postIdCounter}`; posts.push({ id, ...s }); });
+  renderPosts();
+  posts.forEach(p => fillPost(p.id, p));
+}
+
+async function runCuration() {
+  const postsData = collectPosts();
+  if (postsData.length === 0) return;
+  document.getElementById('curateError').className = 'error-msg';
+  document.getElementById('curateSpinner').className = 'spinner-row active';
+  document.getElementById('curateBtn').disabled = true;
+  document.getElementById('results').className = 'results';
+  try {
+    const r = await fetch(`${API}/social-curate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posts: postsData, interests })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    renderResults(data, postsData);
+  } catch (err) {
+    document.getElementById('curateError').textContent = 'Error: ' + err.message;
+    document.getElementById('curateError').className = 'error-msg active';
+  } finally {
+    document.getElementById('curateSpinner').className = 'spinner-row';
+    document.getElementById('curateBtn').disabled = false;
+  }
+}
+
+function renderResults(data, postsData) {
+  const postMap = {};
+  postsData.forEach(p => postMap[p.id] = p);
+  const picks = data.top_picks || [];
+  document.getElementById('picksList').innerHTML = picks.map(pick => {
+    const post = postMap[pick.id] || {};
+    return `<div class="pick-card">
+      <div class="pick-header"><div class="pick-author">${esc(post.author||pick.id)}</div><span class="pick-platform">${esc(post.platform||'')}</span></div>
+      <div class="pick-content">${esc(post.content||'')}</div>
+      <div class="pick-why">→ ${esc(pick.why_engage)}</div>
+      <div class="draft-section">
+        <div class="draft-label">Suggested ${pick.suggested_action}</div>
+        <div class="draft-text" id="draft_${pick.id}">${esc(pick.draft)}</div>
+      </div>
+      <div class="pick-action">
+        <span class="action-tag ${pick.suggested_action}">${pick.suggested_action}</span>
+        <button class="copy-btn" onclick="copyDraft('${pick.id}')">copy</button>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:12px">No top picks found.</div>';
+
+  const scored = (data.scored || []).sort((a, b) => b.signal_score - a.signal_score);
+  document.getElementById('scoredList').innerHTML = scored.map(item => {
+    const post = postMap[item.id] || {};
+    return `<div class="scored-item">
+      <div class="score-badge ${item.signal_label}">${item.signal_score}</div>
+      <div class="scored-body">
+        <div class="scored-author">${esc(post.author||item.id)} <span style="color:var(--muted);font-size:10px">${esc(post.platform||'')}</span></div>
+        <div class="scored-content">${esc(post.content||'')}</div>
+        <div class="scored-reason">${esc(item.reason)}</div>
+      </div>
+      <span class="signal-tag ${item.signal_label}">${item.signal_label}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('results').className = 'results active';
+}
+
+function copyDraft(id) {
+  const el = document.getElementById(`draft_${id}`);
+  navigator.clipboard.writeText(el.textContent);
+  const btn = el.closest('.pick-card').querySelector('.copy-btn');
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+
+function reset() { document.getElementById('results').className = 'results'; posts = []; postIdCounter = 0; renderPosts(); }
+
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('interestInput').addEventListener('keydown', e => { if (e.key === 'Enter') addInterest(); });
+loadInterestsFromDB();
+renderPosts();
+</script>
+</body>
+</html>
